@@ -1,0 +1,4126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Weather">
+  <link rel="icon" type="image/png" href="apple-weather-assets/icon-light.png" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/png" href="apple-weather-assets/icon-dark.png" media="(prefers-color-scheme: dark)">
+  <link rel="apple-touch-icon" href="apple-weather-assets/icon-light.png">
+  <title>ssnmhjjg/weather</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Inter"', '"Plus Jakarta Sans"', '"Noto Sans Thai"', '"SF Pro Display"', '"SF Pro Text"', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <!-- Lucide Icons for authentic iOS look -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Leaflet for Interactive CARTO Basemaps & Weather Radar -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Locked Apple-Style Typography: Prevents Android custom system fonts & OS font-scaling from overriding UI fonts */
+    :root, html, body, button, input, select, textarea, .leaflet-container {
+      font-family: "Inter", "Plus Jakarta Sans", "Noto Sans Thai", "SF Pro Display", "SF Pro Text", sans-serif !important;
+      -webkit-text-size-adjust: 100% !important;
+      text-size-adjust: 100% !important;
+      font-synthesis: none;
+    }
+
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      user-select: none;
+      background-color: #0b1329;
+    }
+
+    /* Hide scrollbars while allowing swipe/drag */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* iOS Glassmorphism tokens (GPU-composited) */
+    .ios-glass {
+      background: linear-gradient(180deg, rgba(28, 46, 76, 0.44) 0%, rgba(18, 32, 56, 0.38) 100%);
+      backdrop-filter: blur(10px) saturate(140%);
+      -webkit-backdrop-filter: blur(10px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.28), inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
+      transform: translateZ(0);
+    }
+
+    /* Apple Weather Mobile GPU Optimization:
+       Avoid 14x per-frame real-time Gaussian backdrop-filter passes over the already-smooth WebGL sky gradient on mobile GPUs */
+    @media (hover: none) and (pointer: coarse), (max-width: 768px) {
+      .ios-glass {
+        background: linear-gradient(180deg, rgba(30, 49, 80, 0.54) 0%, rgba(17, 30, 54, 0.48) 100%);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+      #searchDropdown.ios-glass {
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+    }
+
+    /* Custom UV & Gauge Gradients */
+    .uv-spectrum-gradient {
+      background: linear-gradient(90deg, #30D158 0%, #FFD60A 35%, #FF9F0A 65%, #FF453A 85%, #BF5AF2 100%);
+    }
+
+    .temp-range-track {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Flash highlight overlay for thunderstorms */
+    #lightningFlashOverlay {
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 80ms ease-out;
+    }
+
+    /* CARTO Map iOS Styling */
+    .leaflet-container {
+      background: #0f172a;
+      font-family: inherit;
+    }
+    .leaflet-control-attribution {
+      background: rgba(15, 23, 42, 0.65) !important;
+      color: rgba(255, 255, 255, 0.6) !important;
+      border-radius: 8px 0 0 0;
+      font-size: 10px !important;
+      padding: 2px 6px !important;
+    }
+    .leaflet-control-attribution a {
+      color: rgba(125, 211, 252, 0.9) !important;
+    }
+    .leaflet-control-zoom {
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      border-radius: 12px !important;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+    }
+    .leaflet-control-zoom a {
+      background: rgba(15, 23, 42, 0.82) !important;
+      color: #fff !important;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+    }
+    .leaflet-control-zoom a:hover {
+      background: rgba(30, 41, 59, 0.9) !important;
+    }
+
+    /* Subtle drifting mist animation (pure GPU transform without per-frame opacity conflict) */
+    @keyframes mistFloatA {
+      0%, 100% { transform: translate3d(-4%, 0, 0) scale(1.04); }
+      50% { transform: translate3d(5%, -2%, 0) scale(1.10); }
+    }
+    @keyframes mistFloatB {
+      0%, 100% { transform: translate3d(5%, 1%, 0) scale(1.06); }
+      50% { transform: translate3d(-6%, -1%, 0) scale(1.00); }
+    }
+    .mist-layer-a {
+      will-change: transform;
+      animation: mistFloatA 16s ease-in-out infinite;
+    }
+    .mist-layer-b {
+      will-change: transform;
+      animation: mistFloatB 22s ease-in-out infinite;
+    }
+    /* Smooth vertical feather mask so .webp cloud layers stay in the upper sky and never reach the middle */
+    .vfx-cloud-fade {
+      -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.72) 26%, rgba(0,0,0,0.22) 50%, rgba(0,0,0,0) 70%);
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.72) 26%, rgba(0,0,0,0.22) 50%, rgba(0,0,0,0) 70%);
+    }
+
+    /* iOS 18 Spring Sliding Segmented Pill Controls & Button Micro-Interactions */
+    .seg-pill-track {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .seg-pill-slider {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      left: 0;
+      border-radius: 9999px;
+      pointer-events: none;
+      z-index: 0;
+      transition:
+        transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.28s ease,
+        background 0.35s ease,
+        box-shadow 0.35s ease;
+    }
+    .seg-pill-slider.city-slider {
+      background: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    }
+    .seg-pill-slider.map-slider {
+      top: 2px;
+      bottom: 2px;
+      background: rgba(14, 165, 233, 0.4);
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+    .seg-pill-btn {
+      position: relative;
+      z-index: 1;
+      transition:
+        color 0.28s ease,
+        transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+        text-shadow 0.28s ease;
+    }
+    .seg-pill-btn:hover {
+      transform: translateY(-0.5px);
+    }
+    .seg-pill-btn:active {
+      transform: scale(0.92);
+    }
+    .ios-action-btn {
+      transition:
+        transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1),
+        background-color 0.28s ease,
+        border-color 0.28s ease,
+        box-shadow 0.28s ease;
+    }
+    .ios-action-btn:hover {
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+    }
+    .ios-action-btn:active {
+      transform: scale(0.91);
+    }
+
+    @keyframes weatherMorphIn {
+      0% {
+        opacity: 0.35;
+        transform: translateY(6px) scale(0.985);
+        filter: blur(3px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
+    }
+    .weather-morph-anim {
+      animation: weatherMorphIn 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* Hero Weather Top Section Blur Fade Out -> Fade In on Location Change */
+    #heroWeatherSection {
+      will-change: opacity, filter, transform;
+      opacity: 1;
+      filter: blur(0px);
+      transform: translateY(0) scale(1);
+      transition:
+        opacity 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.50s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #heroWeatherSection.hero-blur-out {
+      opacity: 0;
+      filter: blur(14px);
+      transform: translateY(6px) scale(0.96);
+      transition:
+        opacity 0.24s cubic-bezier(0.4, 0, 0.6, 1),
+        filter 0.24s cubic-bezier(0.4, 0, 0.6, 1),
+        transform 0.24s cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    /* Apple Weather Wet Glass Card Droplets & Top-Rim Rain Collision Layer */
+    .ios-glass.rounded-3xl {
+      position: relative;
+      overflow: hidden;
+    }
+    .ios-glass.rounded-3xl > *:not(.apple-wet-glass-canvas) {
+      position: relative;
+      z-index: 1;
+    }
+    .apple-wet-glass-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: inherit;
+      transition: opacity 0.65s ease;
+    }
+
+    /* Smooth radar overlay scaling at high zoom levels */
+    .rainviewer-radar-tiles {
+      filter: saturate(1.15) blur(0.4px);
+    }
+
+    /* Official Government Weather Alert Smooth Show/Hide & Click Expand Transitions */
+    #govWeatherAlertSection {
+      overflow: hidden;
+      transform-origin: top center;
+      transition:
+        max-height 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1),
+        margin-bottom 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        padding-top 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        padding-bottom 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 0.35s ease,
+        box-shadow 0.35s ease,
+        filter 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #govWeatherAlertSection.gov-alert-hidden {
+      max-height: 0 !important;
+      opacity: 0;
+      transform: translateY(-10px) scale(0.96);
+      margin-bottom: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      border-width: 0 !important;
+      box-shadow: none !important;
+      filter: blur(5px);
+      pointer-events: none;
+    }
+    #govWeatherAlertSection.gov-alert-visible {
+      max-height: 780px;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+      pointer-events: auto;
+    }
+    .gov-alert-details-wrap {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      filter: blur(10px);
+      transform: translateY(-6px);
+      margin-top: 0;
+      transition:
+        grid-template-rows 0.46s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-top 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .gov-alert-details-wrap.expanded {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      filter: blur(0px);
+      transform: translateY(0);
+      margin-top: 0.875rem;
+    }
+    .gov-alert-details-inner {
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="relative min-h-screen text-white overflow-x-hidden antialiased">
+
+  <!-- Fixed Dynamic Fluid Sky Gradient & Misty Clouds Engine (from sathon-weather-ios.html) -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <!-- Sky background fallback gradient backdrop -->
+    <div id="skyBackground" class="absolute inset-0 transition-all duration-1000 ease-out bg-gradient-to-b from-[#1d4ed8] via-[#38bdf8] to-[#bae6fd]"></div>
+    
+    <!-- Real-Time WebGL Volumetric Misty Clouds Shader Canvas -->
+    <canvas id="cloudCanvas" class="absolute inset-0 w-full h-full"></canvas>
+
+    <!-- Background Lightning Bolt & Distant Rain Canvas (Behind Clouds/Mist & Behind All UI Cards) -->
+    <canvas id="lightningCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+
+    <!-- Authentic Apple Weather Misty Stratus, Cumulus & Cirrus Cloud Layers (Upper Sky Only) -->
+    <img id="vfxStratusImg" src="apple-weather-assets/vfx_stratus_000_day.webp" alt=""
+         onerror="this.style.display='none'"
+         class="mist-layer-a vfx-cloud-fade absolute -top-12 -left-16 w-[135%] max-h-[34vh] object-cover object-top max-w-none opacity-55 mix-blend-screen pointer-events-none select-none transition-opacity duration-1000" />
+    <img id="vfxCumulusImg" src="apple-weather-assets/vfx_cumulus_000_day.webp" alt=""
+         onerror="this.style.display='none'"
+         class="mist-layer-b vfx-cloud-fade absolute -top-6 -right-16 w-[130%] max-h-[36vh] object-cover object-top max-w-none opacity-45 mix-blend-screen pointer-events-none select-none transition-opacity duration-1000" />
+    <img id="vfxCirrusImg" src="apple-weather-assets/vfx_cirrus_000_day.webp" alt=""
+         onerror="this.style.display='none'"
+         class="mist-layer-a vfx-cloud-fade absolute -top-8 left-0 w-[125%] max-h-[32vh] object-cover object-top max-w-none opacity-40 mix-blend-screen pointer-events-none select-none transition-opacity duration-1000" />
+
+    <!-- Soft Drifting Misty Cloud Veil Layers (Upper Sky Only) -->
+    <div id="mistVeilA" class="mist-layer-a absolute -top-4 -left-12 right-0 h-36 max-h-[24vh] pointer-events-none"
+         style="background: radial-gradient(ellipse at 50% 35%, rgba(224, 242, 254, 0.22) 0%, rgba(147, 197, 253, 0.10) 45%, transparent 72%);">
+    </div>
+    <div id="mistVeilB" class="mist-layer-b absolute top-2 left-0 -right-12 h-40 max-h-[28vh] pointer-events-none"
+         style="background: radial-gradient(ellipse at 55% 32%, rgba(186, 230, 253, 0.18) 0%, rgba(125, 211, 252, 0.10) 45%, transparent 72%);">
+    </div>
+
+    <!-- Lightning flash simulator overlay -->
+    <div id="lightningFlashOverlay" class="absolute inset-0 bg-indigo-100 mix-blend-overlay"></div>
+  </div>
+
+  <!-- High-DPI Foreground Rain & Card-Top Collision Splashes Overlay Canvas -->
+  <canvas id="fxCanvas" class="fixed inset-0 w-full h-full pointer-events-none z-30"></canvas>
+
+  <!-- Main Weather Dashboard Interface -->
+  <div class="relative z-20 max-w-md md:max-w-3xl lg:max-w-4xl mx-auto px-4 pt-6 pb-24">
+    <!-- Top Bar: GPS, Live Search, Unit Toggle, and Sky Presets -->
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-5">
+      <div class="flex items-center justify-start space-x-2.5">
+        <button onclick="useMyLocation()" title="Use My Current GPS Location" class="inline-flex items-center justify-center w-9 h-9 rounded-full ios-glass text-white/90 hover:bg-white/20 active:scale-95 transition shadow-md">
+          <i data-lucide="locate-fixed" class="w-4 h-4"></i>
+        </button>
+        <div class="leading-tight">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-xs tracking-widest font-semibold text-white/90">ssnmhjjg/weather</span>
+          </div>
+          <span id="coordsSubtitle" class="text-[10px] text-white/60">Real-Time Telemetry &middot; CARTO Spatial Map</span>
+        </div>
+      </div>
+
+      <!-- City Search Box with Autocomplete -->
+      <div class="relative flex-1 max-w-xs mx-auto sm:mx-0 w-full">
+        <div class="flex items-center ios-glass rounded-full px-3 py-1.5 text-xs focus-within:ring-2 focus-within:ring-white/40">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-white/60 mr-2 flex-shrink-0"></i>
+          <input id="citySearchInput" type="text" placeholder="Search any city or click map..." autocomplete="off"
+                 class="bg-transparent text-white placeholder-white/50 focus:outline-none w-full text-xs font-medium" />
+          <button id="clearSearchBtn" type="button" class="hidden text-white/50 hover:text-white ml-1">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <!-- Autocomplete Dropdown -->
+        <div id="searchDropdown" class="hidden absolute left-0 right-0 mt-2 rounded-2xl ios-glass overflow-hidden z-50 divide-y divide-white/10 shadow-2xl"></div>
+      </div>
+
+      <!-- Quick City Presets & Unit Toggle -->
+      <div class="flex items-center justify-center space-x-2">
+        <div id="cityPresetTrack" class="seg-pill-track flex items-center space-x-1 p-1 rounded-full ios-glass text-xs font-medium shadow-lg">
+          <div id="cityPresetSlider" class="seg-pill-slider city-slider"></div>
+          <button onclick="selectCityPreset('bangkok')" id="btn-bangkok" class="seg-pill-btn px-3 py-1 rounded-full text-white font-semibold">
+            Bangkok
+          </button>
+          <button onclick="selectCityPreset('tokyo')" id="btn-tokyo" class="seg-pill-btn px-3 py-1 rounded-full text-white/70 hover:text-white">
+            Tokyo
+          </button>
+          <button onclick="selectCityPreset('california')" id="btn-california" class="seg-pill-btn px-3 py-1 rounded-full text-white/70 hover:text-white">
+            California
+          </button>
+        </div>
+        <button onclick="toggleTempUnit()" id="unitToggleBtn" title="Switch °C / °F" class="ios-action-btn px-2.5 py-1.5 rounded-full ios-glass text-xs font-bold text-white/90 hover:bg-white/20 shadow-lg">
+          °C
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero Current Weather Display -->
+    <section id="heroWeatherSection" class="text-center pt-1 pb-7">
+      <h1 id="cityTitle" class="text-3xl sm:text-4xl font-normal tracking-wide text-white drop-shadow-md">Bangkok</h1>
+      <div class="flex justify-center items-start my-0.5">
+        <span id="currentTemp" class="text-8xl sm:text-9xl font-extralight tracking-tighter ml-4 drop-shadow-lg">28</span>
+        <span class="text-4xl sm:text-5xl font-extralight mt-2 text-white/90">°</span>
+      </div>
+      <p id="weatherCondition" class="text-lg sm:text-xl font-medium text-white/95 capitalize -mt-1 drop-shadow-sm">Tropical Rain &amp; Mist</p>
+      <div class="flex items-center justify-center space-x-3 text-sm font-semibold tracking-wide text-white/85 mt-1 drop-shadow">
+        <span id="highLowSpan">H: 32° &nbsp;L: 25°</span>
+      </div>
+    </section>
+
+    <!-- Official Regional Government Weather Alert & Warning Card -->
+    <section id="govWeatherAlertSection" onclick="toggleGovAlertDetails()" class="gov-alert-hidden ios-glass rounded-3xl p-4 sm:p-5 mb-5 cursor-pointer select-none">
+      <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-white/10">
+        <div class="flex items-center space-x-2 min-w-0">
+          <span id="govAlertIconBadge" class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-500/25 border border-amber-400/40 text-amber-300 flex-shrink-0">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+          </span>
+          <div class="truncate">
+            <span id="govAlertAgency" class="text-[11px] font-bold uppercase tracking-wider text-white/80 block truncate">THAI METEOROLOGICAL DEPARTMENT &middot; กรมอุตุนิยมวิทยา</span>
+          </div>
+        </div>
+        <div class="flex items-center space-x-1.5 flex-shrink-0">
+          <span id="govAlertMoreBadge" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15">+1 More</span>
+          <span id="govAlertSeverityBadge" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/25 text-amber-200 border border-amber-400/40">ADVISORY</span>
+          <i id="govAlertChevron" data-lucide="chevron-down" class="w-4 h-4 text-white/60 transition-transform duration-300"></i>
+        </div>
+      </div>
+
+      <div class="pt-3">
+        <div class="flex items-start justify-between gap-2">
+          <h2 id="govAlertHeadline" class="text-sm sm:text-base font-semibold text-white tracking-tight leading-snug">Tropical Rainfall &amp; Thunderstorm Advisory</h2>
+          <span id="govAlertSourceTag" class="text-[10px] font-medium text-white/55 whitespace-nowrap mt-0.5">Official Regional Feed</span>
+        </div>
+        <p id="govAlertSummary" class="text-xs text-white/85 mt-1.5 leading-relaxed">
+          Active regional weather advisory in effect. Tap to view official meteorological bulletin and safety precautions.
+        </p>
+      </div>
+
+      <!-- Expandable Full Multi-Alert Bulletin & Safety Instructions -->
+      <div id="govAlertDetailsWrap" class="gov-alert-details-wrap">
+        <div class="gov-alert-details-inner">
+          <div id="govAlertDetailsPanel" class="pt-3.5 border-t border-white/10 space-y-3 text-xs">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hourly Forecast Card -->
+    <section class="ios-glass rounded-3xl p-4 sm:p-5 mb-5 transition-all">
+      <div class="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-white/70 pb-3 border-b border-white/10">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="clock" class="w-4 h-4"></i>
+          <span>Hourly Forecast &middot; Next 24 Hours</span>
+        </div>
+        <span id="localTimeSpan" class="text-[11px] normal-case text-white/60">Live Local Time</span>
+      </div>
+      
+      <!-- Horizontal Scrollable Row -->
+      <div id="hourlyContainer" class="flex overflow-x-auto no-scrollbar space-x-6 sm:space-x-8 pt-3 pb-1 text-center font-normal">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Interactive CARTO Weather Radar & Telemetry Map Card -->
+    <section id="weatherMapSection" class="ios-glass rounded-3xl p-4 sm:p-5 mb-5 transition-all">
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
+        <div class="flex items-center space-x-2 text-xs font-medium uppercase tracking-wider text-white/70">
+          <i data-lucide="map" class="w-4 h-4 text-sky-300"></i>
+          <span>Weather Map</span>
+        </div>
+
+        <div class="flex items-center space-x-1.5">
+          <!-- Weather Overlay Layer Switcher -->
+          <div id="mapLayerTrack" class="seg-pill-track flex items-center bg-slate-900/50 p-0.5 rounded-full border border-white/15 text-[11px]">
+            <div id="mapLayerSlider" class="seg-pill-slider map-slider"></div>
+            <button onclick="setMapOverlayMode('radar')" id="map-btn-radar" class="seg-pill-btn px-2.5 py-1 rounded-full text-white font-semibold">
+              Radar
+            </button>
+            <button onclick="setMapOverlayMode('temp')" id="map-btn-temp" class="seg-pill-btn px-2.5 py-1 rounded-full text-white/70 hover:text-white">
+              Temp
+            </button>
+            <button onclick="setMapOverlayMode('wind')" id="map-btn-wind" class="seg-pill-btn px-2.5 py-1 rounded-full text-white/70 hover:text-white">
+              Wind
+            </button>
+          </div>
+
+          <!-- CARTO Basemap Theme Toggle (Moon / Sun Icon) -->
+          <button onclick="cycleCartoBasemap()" id="cartoThemeBtn" title="Toggle Dark / Light Map"
+                  class="ios-action-btn inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-900/50 border border-white/15 text-white/85 hover:text-white">
+            <i data-lucide="moon" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Map Viewport Container -->
+      <div class="relative mt-3 rounded-2xl overflow-hidden border border-white/15 shadow-inner" style="height: 340px;">
+        <div id="cartoMap" class="w-full h-full z-10"></div>
+        <!-- Dynamic Weather Field Canvas Overlay (Wind Streamlines & Thermal Glow) -->
+        <canvas id="mapOverlayCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-20"></canvas>
+
+        <!-- Bottom Floating Map Legend & Radar Controls -->
+        <div class="absolute bottom-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+          <div id="radarTimelineControls" class="pointer-events-auto flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-950/75 backdrop-blur-md border border-white/15 text-[11px] text-white/90 shadow-lg">
+            <button onclick="toggleRadarAnimation()" id="radarPlayBtn" class="hover:text-sky-300 transition flex items-center space-x-1">
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+            </button>
+            <span id="radarTimestamp" class="font-medium text-white/80">Live Doppler Radar</span>
+          </div>
+
+          <div id="mapLegendContainer" class="pointer-events-auto flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-950/75 backdrop-blur-md border border-white/15 text-[10px] text-white/75 shadow-lg">
+            <span>Light</span>
+            <div class="w-16 h-1.5 rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 via-yellow-400 to-rose-500"></div>
+            <span>Heavy</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10-Day Forecast Card -->
+    <section class="ios-glass rounded-3xl p-4 sm:p-5 mb-5">
+      <div class="flex items-center space-x-2 text-xs font-medium uppercase tracking-wider text-white/70 pb-3 border-b border-white/10">
+        <i data-lucide="calendar" class="w-4 h-4"></i>
+        <span>10-Day Forecast</span>
+      </div>
+
+      <div id="tenDayContainer" class="divide-y divide-white/10 text-sm font-medium">
+        <!-- Injected with Apple-like temperature range bars via JavaScript -->
+      </div>
+    </section>
+
+    <!-- Weather Details Grid -->
+    <section class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <!-- UV Index Widget -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
+            <i data-lucide="sun" class="w-4 h-4"></i>
+            <span>UV Index</span>
+          </div>
+          <p id="uvValue" class="text-3xl font-semibold tracking-tight">4</p>
+          <p id="uvLevel" class="text-sm font-medium text-white/90">Moderate</p>
+        </div>
+        <div>
+          <div class="relative w-full h-1.5 rounded-full uv-spectrum-gradient my-2">
+            <div id="uvDot" class="absolute -top-1 w-3.5 h-3.5 rounded-full bg-white shadow-md border-2 border-slate-800 transition-all" style="left: 36%;"></div>
+          </div>
+          <p id="uvDescription" class="text-xs text-white/70 line-clamp-2">Use sun protection until 4:00 PM.</p>
+        </div>
+      </div>
+
+      <!-- Wind Widget with Compass Rose -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-1">
+            <i data-lucide="wind" class="w-4 h-4"></i>
+            <span>Wind</span>
+          </div>
+          <div class="flex items-baseline space-x-1">
+            <span id="windSpeed" class="text-3xl font-semibold">9</span>
+            <span class="text-xs font-semibold text-white/75">MPH</span>
+          </div>
+          <p id="windGusts" class="text-xs text-white/70">NW &middot; Gusts to 14 mph</p>
+        </div>
+
+        <!-- Compass Visual -->
+        <div class="relative w-24 h-24 mx-auto flex items-center justify-center my-1">
+          <div class="absolute inset-0 rounded-full border border-dashed border-white/20"></div>
+          <span class="absolute top-0 text-[9px] font-bold text-white/50">N</span>
+          <span class="absolute bottom-0 text-[9px] font-bold text-white/50">S</span>
+          <span class="absolute left-1 text-[9px] font-bold text-white/50">W</span>
+          <span class="absolute right-1 text-[9px] font-bold text-white/50">E</span>
+          <div id="compassNeedle" class="w-12 h-12 flex items-center justify-center transition-transform duration-700 transform rotate-45">
+            <i data-lucide="navigation" class="w-7 h-7 text-sky-400 fill-sky-400"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sunset / Sunrise Widget with Solar Arc -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-1">
+            <span id="sunEventIconWrap" class="inline-flex items-center"><i data-lucide="sunset" class="w-4 h-4"></i></span>
+            <span id="sunEventLabel">Sunset</span>
+          </div>
+          <p id="sunEventTime" class="text-3xl font-semibold">6:48 PM</p>
+        </div>
+        
+        <!-- Curved Sun Path Vector -->
+        <div class="relative w-full h-16 flex items-center justify-center">
+          <svg viewBox="0 0 100 40" class="w-full h-full overflow-visible">
+            <path d="M 5,38 Q 50,-5 95,38" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2.5" stroke-dasharray="2 3"/>
+            <path id="sunArcActivePath" d="M 5,38 Q 30,10 58,15" fill="none" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round"/>
+            <circle id="sunArcDot" cx="58" cy="15" r="4.5" fill="#FBBF24" class="drop-shadow"/>
+          </svg>
+        </div>
+        <p id="sunriseInfo" class="text-xs text-white/70">Sunrise: 6:58 AM tomorrow</p>
+      </div>
+
+      <!-- Air Quality Index Widget -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
+            <i data-lucide="activity" class="w-4 h-4"></i>
+            <span>Air Quality</span>
+          </div>
+          <p id="aqiValue" class="text-3xl font-semibold">35</p>
+          <p id="aqiLevel" class="text-sm font-medium text-emerald-400">Good</p>
+        </div>
+        <div>
+          <div class="w-full h-1.5 rounded-full bg-white/20 relative my-2 overflow-hidden">
+            <div id="aqiBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width: 25%;"></div>
+          </div>
+          <p id="aqiDescription" class="text-xs text-white/70">Air quality is ideal for outdoor activities.</p>
+        </div>
+      </div>
+
+      <!-- Humidity Widget -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
+            <i data-lucide="droplets" class="w-4 h-4"></i>
+            <span>Humidity</span>
+          </div>
+          <p id="humidityValue" class="text-3xl font-semibold">54%</p>
+        </div>
+        <p id="dewPointText" class="text-xs text-white/70">The dew point is 52° right now.</p>
+      </div>
+
+      <!-- Feels Like Widget -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
+            <i data-lucide="thermometer" class="w-4 h-4"></i>
+            <span>Feels Like</span>
+          </div>
+          <p id="feelsLikeValue" class="text-3xl font-semibold">74°</p>
+        </div>
+        <p id="feelsLikeDesc" class="text-xs text-white/70">Similar to the actual temperature.</p>
+      </div>
+
+      <!-- Visibility Widget -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+            <span>Visibility</span>
+          </div>
+          <p id="visibilityValue" class="text-3xl font-semibold">10 mi</p>
+        </div>
+        <p id="visibilityDesc" class="text-xs text-white/70">Perfect atmospheric clarity.</p>
+      </div>
+
+      <!-- Pressure Widget -->
+      <div class="ios-glass rounded-3xl p-4 flex flex-col justify-between aspect-square">
+        <div>
+          <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
+            <i data-lucide="gauge" class="w-4 h-4"></i>
+            <span>Pressure</span>
+          </div>
+          <p id="pressureValue" class="text-3xl font-semibold">30.04</p>
+          <p class="text-xs text-white/60">inHg</p>
+        </div>
+        <div class="flex items-center space-x-1 text-xs text-emerald-400">
+          <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+          <span id="pressureTrend">Steady</span>
+        </div>
+      </div>
+
+    </section>
+
+    <footer class="mt-8 text-center text-xs text-white/50 space-y-1">
+      <p>Real-Time Weather Telemetry &middot; CARTO Spatial Basemaps &middot; WebGL Volumetric Clouds</p>
+      <p class="text-[11px] text-white/35">Click anywhere on the CARTO map or search any city worldwide for live conditions</p>
+    </footer>
+  </div>
+
+  <script>
+    // Preset weather themes and physical conditions
+    const WEATHER_THEMES = {
+      sunny: {
+        city: 'California',
+        temp: 74,
+        condition: 'Mostly Sunny',
+        high: 79,
+        low: 56,
+        uv: 4,
+        uvText: 'Moderate',
+        uvPct: '36%',
+        uvDesc: 'Use sun protection until 4:00 PM.',
+        wind: 9,
+        windDir: 45,
+        windGusts: 'NW · Gusts to 14 mph',
+        sunset: '6:48 PM',
+        sunriseInfo: 'Sunrise: 6:58 AM tomorrow',
+        feelsLike: 74,
+        humidity: '54%',
+        dewPoint: 'The dew point is 52° right now.',
+        visibility: '10 mi',
+        bgGradient: 'linear-gradient(180deg, #1d4ed8 0%, #38bdf8 38%, #93c5fd 80%, #bae6fd 100%)',
+        hasLightning: false,
+        hourly: [
+          { time: 'Now', icon: 'sun', temp: 74 },
+          { time: '11 AM', icon: 'sun', temp: 76 },
+          { time: '12 PM', icon: 'cloud-sun', temp: 78 },
+          { time: '1 PM', icon: 'cloud-sun', temp: 79 },
+          { time: '2 PM', icon: 'sun', temp: 79 },
+          { time: '3 PM', icon: 'sun', temp: 77 },
+          { time: '4 PM', icon: 'cloud-sun', temp: 75 },
+          { time: '5 PM', icon: 'cloud', temp: 72 },
+          { time: '6 PM', icon: 'sunset', temp: 69 },
+          { time: '7 PM', icon: 'moon', temp: 66 }
+        ]
+      },
+      rainy: {
+        city: 'Bangkok',
+        temp: 82,
+        condition: 'Tropical Rain & Mist',
+        high: 90,
+        low: 77,
+        uv: 2,
+        uvText: 'Low',
+        uvPct: '18%',
+        uvDesc: 'Filtered tropical overcast.',
+        wind: 12,
+        windDir: 155,
+        windGusts: 'SSE · Gusts to 21 mph',
+        sunset: '6:04 PM',
+        sunriseInfo: 'Sunrise: 6:08 AM tomorrow',
+        feelsLike: 88,
+        humidity: '86%',
+        dewPoint: 'The dew point is 75° right now.',
+        visibility: '6 mi',
+        bgGradient: 'linear-gradient(180deg, #0f172a 0%, #1e293b 35%, #334155 70%, #475569 100%)',
+        hasLightning: true,
+        hourly: [
+          { time: 'Now', icon: 'cloud-lightning', temp: 51 },
+          { time: '11 AM', icon: 'cloud-rain', temp: 51 },
+          { time: '12 PM', icon: 'cloud-rain', temp: 52 },
+          { time: '1 PM', icon: 'cloud-rain', temp: 54 },
+          { time: '2 PM', icon: 'cloud-lightning', temp: 55 },
+          { time: '3 PM', icon: 'cloud-rain', temp: 53 },
+          { time: '4 PM', icon: 'cloud-rain', temp: 52 },
+          { time: '5 PM', icon: 'cloud', temp: 50 },
+          { time: '6 PM', icon: 'cloud', temp: 49 },
+          { time: '7 PM', icon: 'moon', temp: 48 }
+        ]
+      },
+      night: {
+        city: 'Tokyo',
+        temp: 62,
+        condition: 'Clear Night & Moonlit Clouds',
+        high: 68,
+        low: 55,
+        uv: 0,
+        uvText: 'None',
+        uvPct: '2%',
+        uvDesc: 'No sun protection required.',
+        wind: 7,
+        windDir: 340,
+        windGusts: 'NNW · Gusts to 11 mph',
+        sunset: '5:24 PM',
+        sunriseInfo: 'Sunrise: 6:02 AM tomorrow',
+        feelsLike: 62,
+        humidity: '68%',
+        dewPoint: 'The dew point is 51° right now.',
+        visibility: '10 mi',
+        bgGradient: 'linear-gradient(180deg, #050814 0%, #0a1128 35%, #151e3f 75%, #1f274a 100%)',
+        hasLightning: false,
+        hourly: [
+          { time: 'Now', icon: 'moon', temp: 62 },
+          { time: '11 PM', icon: 'moon', temp: 61 },
+          { time: '12 AM', icon: 'moon', temp: 60 },
+          { time: '1 AM', icon: 'moon', temp: 58 },
+          { time: '2 AM', icon: 'moon', temp: 57 },
+          { time: '3 AM', icon: 'moon', temp: 56 },
+          { time: '4 AM', icon: 'moon', temp: 55 },
+          { time: '5 AM', icon: 'cloud-sun', temp: 57 },
+          { time: '6 AM', icon: 'sun', temp: 60 },
+          { time: '7 AM', icon: 'sun', temp: 63 }
+        ]
+      }
+    };
+
+    let currentMode = 'sunny';
+    let cloudCanvas, gl;
+    let lightningCanvas, lightningCtx;
+    let fxCanvas, fxCtx;
+
+    // Smoothly interpolated shader state for seamless weather transitions
+    const SHADER_PRESETS = {
+      sunny: {
+        skyTop: [0.07, 0.28, 0.76],
+        skyMid: [0.20, 0.56, 0.93],
+        skyHorizon: [0.62, 0.84, 0.98],
+        cloudBright: [1.0, 0.99, 0.98],
+        cloudMid: [0.78, 0.87, 0.96],
+        cloudShadow: [0.42, 0.55, 0.74],
+        coverage: 0.48,
+        windSpeed: 1.0,
+        stormFactor: 0.0,
+        nightFactor: 0.0
+      },
+      rainy: {
+        skyTop: [0.05, 0.08, 0.14],
+        skyMid: [0.11, 0.16, 0.25],
+        skyHorizon: [0.24, 0.31, 0.41],
+        cloudBright: [0.68, 0.75, 0.84],
+        cloudMid: [0.32, 0.39, 0.50],
+        cloudShadow: [0.11, 0.15, 0.23],
+        coverage: 0.72,
+        windSpeed: 2.2,
+        stormFactor: 1.0,
+        nightFactor: 0.0
+      },
+      night: {
+        skyTop: [0.015, 0.025, 0.07],
+        skyMid: [0.04, 0.08, 0.18],
+        skyHorizon: [0.10, 0.16, 0.32],
+        cloudBright: [0.78, 0.87, 1.0],
+        cloudMid: [0.24, 0.34, 0.54],
+        cloudShadow: [0.06, 0.09, 0.19],
+        coverage: 0.44,
+        windSpeed: 0.75,
+        stormFactor: 0.0,
+        nightFactor: 1.0
+      }
+    };
+
+    // Active interpolated state
+    const renderState = JSON.parse(JSON.stringify(SHADER_PRESETS.sunny));
+    // Weather and time are independent: a rainy night stays rainy, a clear night has no clouds.
+    const SKY_CONDITIONS = {
+      clear:         { cloudAmount: 0,    coverage: 0,    shade: 0,    rainAmount: 0,    snowAmount: 0,    windSpeed: 1.0,  mistAmount: 0 },
+      few_clouds:    { cloudAmount: 0.55, coverage: 0.44, shade: 0.06, rainAmount: 0,    snowAmount: 0,    windSpeed: 1.0,  mistAmount: 0.35 },
+      partly_cloudy: { cloudAmount: 0.94, coverage: 0.63, shade: 0.10, rainAmount: 0,    snowAmount: 0,    windSpeed: 1.0,  mistAmount: 0.72 },
+      cloudy:        { cloudAmount: 1,    coverage: 0.75, shade: 0.36, rainAmount: 0,    snowAmount: 0,    windSpeed: 1.08, mistAmount: 0.95 },
+      light_rain:    { cloudAmount: 1,    coverage: 0.72, shade: 0.52, rainAmount: 0.34, snowAmount: 0,    windSpeed: 1.15, mistAmount: 0.95 },
+      heavy_rain:    { cloudAmount: 1,    coverage: 0.85, shade: 0.82, rainAmount: 1,    snowAmount: 0,    windSpeed: 1.25, mistAmount: 1.00 },
+      thunderstorm:  { cloudAmount: 1,    coverage: 0.94, shade: 0.96, rainAmount: 1,    snowAmount: 0,    windSpeed: 1.35, mistAmount: 1.00 },
+      fog:           { cloudAmount: 0.95, coverage: 0.68, shade: 0.24, rainAmount: 0,    snowAmount: 0,    windSpeed: 0.65, mistAmount: 1.00 },
+      snow:          { cloudAmount: 1,    coverage: 0.70, shade: 0.38, rainAmount: 0,    snowAmount: 0,    windSpeed: 0.95, mistAmount: 0.92 }
+    };
+    const SKY_TIMEZONES = {
+      bangkok: { timezone: 'Asia/Bangkok', utcOffset: 25200 },
+      tokyo: { timezone: 'Asia/Tokyo', utcOffset: 32400 },
+      california: { timezone: 'America/Los_Angeles', utcOffset: -25200 }
+    };
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    let skyWeather = { kind: 'few_clouds', lightning: false };
+    let skyClock = { timezone: 'Asia/Bangkok', utcOffset: 25200, sunrise: 6, sunset: 18 };
+    Object.assign(renderState, { cloudAmount: 0.55, rainAmount: 0, snowAmount: 0, mistAmount: 0.35, horizonWarmth: 0, eveningFactor: 0 });
+    let targetSkyState = JSON.parse(JSON.stringify(renderState));
+    let nextSkyClockUpdate = 0;
+    let cloudTravel = 0;
+    const cloudOffsetA = [0, 0];
+    const cloudOffsetB = [0, 0];
+    const fallbackSkyBackground = document.getElementById('skyBackground');
+    const cloudOverlayElements = ['vfxStratusImg', 'vfxCumulusImg', 'vfxCirrusImg', 'mistVeilA', 'mistVeilB'].map(id => document.getElementById(id));
+
+    function smoothSkyStep(low, high, value) {
+      const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
+      return t * t * (3 - 2 * t);
+    }
+
+    function localDecimalHour(timezone, now = new Date(), utcOffset = 0) {
+      try {
+        const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
+          timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+        }).formatToParts(now).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+        return Number(parts.hour) % 24 + Number(parts.minute) / 60 + Number(parts.second) / 3600;
+      } catch (_) {
+        const shifted = new Date(now.getTime() + utcOffset * 1000);
+        return shifted.getUTCHours() + shifted.getUTCMinutes() / 60 + shifted.getUTCSeconds() / 3600;
+      }
+    }
+
+    function isoDecimalHour(value, fallback) {
+      const match = typeof value === 'string' && value.match(/T(\d{2}):(\d{2})/);
+      return match ? Number(match[1]) + Number(match[2]) / 60 : fallback;
+    }
+
+    function skyTimeFactors(hour, clock = skyClock) {
+      const morning = smoothSkyStep(6, 6.25, hour) * (1 - smoothSkyStep(7.75, 8, hour));
+      const evening = smoothSkyStep(17, 17.2, hour) * (1 - smoothSkyStep(17.8, 18, hour));
+      const day = smoothSkyStep(clock.sunrise - 0.35, clock.sunrise + 0.35, hour)
+        * (1 - smoothSkyStep(clock.sunset - 0.35, clock.sunset + 0.35, hour));
+      return { night: 1 - day, warmth: Math.max(morning, evening), evening };
+    }
+
+    // Official WMO codes: https://open-meteo.com/en/docs#weathervariables
+    function classifySkyWeather(code, precipitation = 0, interval = 900) {
+      const value = code == null ? -1 : Number(code);
+      const rainRate = Math.max(0, Number(precipitation) || 0) * 25.4 * 3600 / Math.max(1, Number(interval) || 900);
+      const lightning = [95, 96, 97, 99].includes(value);
+      let kind = 'cloudy';
+      if (value === 0) kind = 'clear';
+      else if (value === 1) kind = 'few_clouds';
+      else if (value === 2) kind = 'partly_cloudy';
+      else if ([45, 48].includes(value)) kind = 'fog';
+      else if ([71, 73, 75, 77, 85, 86].includes(value)) kind = 'snow';
+      else if (lightning) kind = 'thunderstorm';
+      else if ([65, 67, 82].includes(value)) kind = 'heavy_rain';
+      else if ([51, 53, 55, 56, 57, 61, 63, 66, 80, 81].includes(value)) kind = 'light_rain';
+      const rainAmount = (kind === 'thunderstorm' || kind === 'heavy_rain') ? 1 : kind === 'light_rain'
+        ? Math.min(0.65, Math.max([63, 81].includes(value) ? 0.48 : 0.22, rainRate / 12)) : 0;
+      const snowAmount = kind === 'snow'
+        ? ([75, 86].includes(value) ? 1.0 : value === 73 ? 0.78 : 0.55) : 0;
+      return { kind, rainAmount, snowAmount, lightning, rainRate, coverage: value === 1 ? 0.42 : undefined };
+    }
+
+    const SNOW_PALETTE = {
+      skyTop: [0.22, 0.30, 0.42],
+      skyMid: [0.36, 0.46, 0.58],
+      skyHorizon: [0.54, 0.63, 0.74],
+      cloudBright: [0.96, 0.98, 1.00],
+      cloudMid: [0.76, 0.82, 0.90],
+      cloudShadow: [0.46, 0.54, 0.65]
+    };
+
+    function buildSkyState(weather, hour = localDecimalHour(skyClock.timezone, new Date(), skyClock.utcOffset)) {
+      const condition = SKY_CONDITIONS[weather.kind] || SKY_CONDITIONS.cloudy;
+      const time = skyTimeFactors(hour);
+      const snowAmt = weather.snowAmount ?? (condition.snowAmount || 0);
+      const isCloudKey = key => key.startsWith('cloud');
+      const color = key => SHADER_PRESETS.sunny[key].map((value, i) => {
+        const base = lerp(value, SHADER_PRESETS.rainy[key][i], condition.shade);
+        const wintry = snowAmt > 0 ? lerp(base, SNOW_PALETTE[key][i], Math.min(1, snowAmt * 0.85)) : base;
+        const nightBlend = isCloudKey(key) && condition.shade > 0.5 ? time.night * 0.55 : time.night * (snowAmt > 0 ? 0.78 : 1);
+        return lerp(wintry, SHADER_PRESETS.night[key][i], nightBlend);
+      });
+      const state = {};
+      ['skyTop', 'skyMid', 'skyHorizon', 'cloudBright', 'cloudMid', 'cloudShadow'].forEach(key => state[key] = color(key));
+      return Object.assign(state, {
+        coverage: weather.coverage ?? condition.coverage, cloudAmount: condition.cloudAmount,
+        windSpeed: condition.windSpeed, stormFactor: condition.shade,
+        rainAmount: weather.rainAmount ?? condition.rainAmount,
+        snowAmount: snowAmt,
+        mistAmount: condition.mistAmount,
+        nightFactor: time.night, horizonWarmth: time.warmth, eveningFactor: time.evening
+      });
+    }
+
+    function updateSolarArcWidget() {
+      const pathEl = document.getElementById('sunArcActivePath');
+      const dotEl = document.getElementById('sunArcDot');
+      if (!pathEl || !dotEl) return;
+
+      const hour = localDecimalHour(skyClock.timezone, new Date(), skyClock.utcOffset);
+      const sr = Number.isFinite(skyClock.sunrise) ? skyClock.sunrise : 6.0;
+      const ss = Number.isFinite(skyClock.sunset) ? skyClock.sunset : 18.0;
+      const isDaytime = hour >= sr && hour <= ss;
+
+      let t = 0.5;
+      if (isDaytime) {
+        t = Math.max(0.03, Math.min(0.97, (hour - sr) / Math.max(0.5, ss - sr)));
+      } else {
+        const nightSpan = Math.max(1.0, (24 - ss) + sr);
+        const nightElapsed = hour > ss ? (hour - ss) : ((24 - ss) + hour);
+        t = Math.max(0.03, Math.min(0.97, nightElapsed / nightSpan));
+      }
+
+      // Exact De Casteljau subdivision of quadratic Bezier M 5,38 Q 50,-5 95,38 from 0 to t
+      const qx = (5 + 45 * t).toFixed(2);
+      const qy = (38 - 43 * t).toFixed(2);
+      const bx = (5 + 90 * t).toFixed(2);
+      const by = (38 - 86 * t + 86 * t * t).toFixed(2);
+
+      pathEl.setAttribute('d', `M 5,38 Q ${qx},${qy} ${bx},${by}`);
+      dotEl.setAttribute('cx', bx);
+      dotEl.setAttribute('cy', by);
+
+      if (latestWeatherData) {
+        const labelEl = document.getElementById('sunEventLabel');
+        const iconWrap = document.getElementById('sunEventIconWrap');
+        const mainTimeEl = document.getElementById('sunEventTime');
+        const subInfoEl = document.getElementById('sunriseInfo');
+        if (isDaytime) {
+          if (labelEl) labelEl.textContent = 'Sunset';
+          if (iconWrap) iconWrap.innerHTML = `<i data-lucide="sunset" class="w-4 h-4"></i>`;
+          if (mainTimeEl) mainTimeEl.textContent = latestWeatherData.sunsetStr;
+          if (subInfoEl) subInfoEl.textContent = latestWeatherData.sunriseStr;
+        } else {
+          if (labelEl) labelEl.textContent = 'Sunrise';
+          if (iconWrap) iconWrap.innerHTML = `<i data-lucide="sunrise" class="w-4 h-4"></i>`;
+          const nextSr = hour < sr ? (latestWeatherData.sunriseTodayOnlyStr || latestWeatherData.sunriseOnlyStr) : latestWeatherData.sunriseOnlyStr;
+          if (mainTimeEl && nextSr) mainTimeEl.textContent = nextSr;
+          if (subInfoEl) subInfoEl.textContent = `Sunset: ${latestWeatherData.sunsetStr}`;
+        }
+        lucide.createIcons();
+      }
+    }
+
+    function refreshSkyClock() {
+      targetSkyState = buildSkyState(skyWeather);
+      nextSkyClockUpdate = performance.now() + 15000;
+      const timeLabel = document.getElementById('localTimeSpan');
+      if (timeLabel && latestWeatherData) {
+        try { timeLabel.textContent = new Date().toLocaleTimeString([], { timeZone: skyClock.timezone, hour: '2-digit', minute: '2-digit' }); }
+        catch (_) { /* Leave the last valid city time visible if timezone data is unavailable. */ }
+      }
+      updateSolarArcWidget();
+    }
+
+    const lastOverlayOpacities = [-1, -1, -1, -1, -1];
+
+    function renderSkyOverlays() {
+      const opacity = renderState.cloudAmount;
+      const stormBoost = 1 + renderState.stormFactor * 0.28;
+      cloudOverlayElements.forEach((element, i) => {
+        if (!element) return;
+        const nextOp = Math.min(1, opacity * (i < 3 ? [0.66, 0.55, 0.48][i] * stormBoost : renderState.mistAmount));
+        if (Math.abs(nextOp - lastOverlayOpacities[i]) > 0.004) {
+          lastOverlayOpacities[i] = nextOp;
+          element.style.opacity = nextOp.toFixed(3);
+        }
+      });
+      if (gl && glProgram) return;
+      const sky = fallbackSkyBackground;
+      const rgb = values => `rgb(${values.map(value => Math.round(value * 255)).join(',')})`;
+      const warm = renderState.horizonWarmth * (1 - renderState.stormFactor * 0.55);
+      const horizon = renderState.skyHorizon.map((value, i) => lerp(value, [1, 0.52, 0.24][i], warm * 0.85));
+      sky.style.background = `linear-gradient(180deg, ${rgb(renderState.skyTop)}, ${rgb(renderState.skyMid)} 48%, ${rgb(horizon)} 86%, ${rgb(horizon)})`;
+    }
+    let glProgram = null;
+    let glUniforms = {};
+    let startTime = performance.now();
+    let lastFrameTime = performance.now();
+    let pointerParallax = { x: 0, y: 0, targetX: 0, targetY: 0 };
+
+    // Lightning & Precipitation state
+    let rainDrops = [];
+    let lightningIntensity = 0;
+    let activeBolts = [];
+
+    // WebGL Vertex Shader (Fullscreen Quad)
+    const VERTEX_SHADER_SRC = `
+      attribute vec2 aPosition;
+      varying vec2 vUv;
+      void main() {
+        vUv = aPosition * 0.5 + 0.5;
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }
+    `;
+
+    // WebGL Fragment Shader: Rotational FBM Volumetric Misty Clouds (Mobile-GPU Optimized with Early-Exit Spatial Culling)
+    const FRAGMENT_SHADER_SRC = `
+      precision mediump float;
+      varying vec2 vUv;
+
+      uniform vec2 uResolution;
+      uniform float uTime;
+      uniform vec2 uCloudOffsetA;
+      uniform vec2 uCloudOffsetB;
+      uniform vec2 uParallax;
+
+      uniform vec3 uSkyTop;
+      uniform vec3 uSkyMid;
+      uniform vec3 uSkyHorizon;
+      uniform vec3 uCloudBright;
+      uniform vec3 uCloudMid;
+      uniform vec3 uCloudShadow;
+
+      uniform float uCoverage;
+      uniform float uStormFactor;
+      uniform float uNightFactor;
+      uniform float uCloudAmount;
+      uniform float uMistAmount;
+      uniform float uHorizonWarmth;
+      uniform float uEveningFactor;
+      uniform float uLightningIntensity;
+
+      float hash(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
+          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+          u.y
+        );
+      }
+
+      // Rotational FBM for soft billowing misty clouds (4 octaves for 60+ FPS on mobile GPUs)
+      float fbmMist(vec2 p) {
+        float v = 0.0;
+        float a = 0.54;
+        mat2 rot = mat2(0.80, 0.60, -0.60, 0.80);
+        for (int i = 0; i < 4; i++) {
+          v += a * noise(p);
+          p = rot * p * 2.03 + vec2(1.7, 9.2);
+          a *= 0.50;
+        }
+        return v;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        float aspect = uResolution.x / max(1.0, uResolution.y);
+        vec2 p = vec2((uv.x - 0.5) * aspect - uParallax.x * 0.025, uv.y - uParallax.y * 0.012);
+
+        // 1. Base Fluid Atmospheric Gradient
+        vec3 col = mix(uSkyHorizon, uSkyMid, smoothstep(0.0, 0.55, uv.y));
+        col = mix(col, uSkyTop, smoothstep(0.45, 1.0, uv.y));
+
+        // Warm layered horizon light tied to sunrise/sunset windows
+        if (uHorizonWarmth > 0.005) {
+          float warmVisibility = uHorizonWarmth * (1.0 - uStormFactor * 0.55);
+          float dy1 = (uv.y - 0.23) * 4.3478;
+          float dy2 = (uv.y - 0.40) * 9.5238;
+          float horizonBand = exp(-(dy1 * dy1));
+          float upperRibbon = exp(-(dy2 * dy2));
+          vec3 amber = mix(vec3(1.0, 0.59, 0.29), vec3(1.0, 0.42, 0.21), uEveningFactor);
+          col = mix(col, amber, horizonBand * warmVisibility * 0.78);
+          col = mix(col, vec3(1.0, 0.72, 0.49), upperRibbon * warmVisibility * 0.20);
+        }
+
+        // 2. Subtle Asynchronous Twinkling Night Stars in Upper Sky (independent phase, speed & cell jitter per star)
+        if (uNightFactor > 0.01 && uv.y > 0.45) {
+          vec2 starGrid = floor(p * 55.0);
+          float sRnd = hash(starGrid);
+          if (sRnd > 0.965) {
+            float sNorm = (sRnd - 0.965) * 28.5714;
+            float sRnd2 = hash(starGrid + vec2(17.3, 29.7));
+            vec2 cellOffset = vec2(sNorm - 0.5, sRnd2 - 0.5) * 0.46;
+            vec2 f = fract(p * 55.0) - 0.5 - cellOffset;
+            float d = length(f);
+            float phase1 = sNorm * 6.2832;
+            float phase2 = sRnd2 * 6.2832;
+            float speed1 = 0.85 + sRnd2 * 3.45;
+            float speed2 = 1.65 + sNorm * 2.95;
+            float wave = 0.62 * sin(uTime * speed1 + phase1) + 0.38 * cos(uTime * speed2 - phase2);
+            float twinkleDepth = 0.32 + 0.58 * fract(sNorm + sRnd2);
+            float twinkle = clamp((1.0 - twinkleDepth * 0.5) + (twinkleDepth * 0.5) * wave, 0.08, 1.0);
+            float starRadius = 0.13 + 0.08 * sNorm;
+            float starBright = 0.58 + 0.52 * sRnd2;
+            vec3 starTint = mix(vec3(0.72, 0.86, 1.0), vec3(0.96, 0.94, 1.0), sNorm);
+            float star = (1.0 - smoothstep(0.0, starRadius, d)) * twinkle * starBright * smoothstep(0.48, 1.0, uNightFactor) * smoothstep(0.45, 0.85, uv.y);
+            col += starTint * star;
+          }
+        }
+
+        // 3. Multi-Layered Drifting Misty Clouds (Early-exit spatial culling: skip bottom ~50% of screen where clouds are masked out)
+        float stormExpand = uStormFactor * 0.06;
+        if (uv.y > 0.48 - stormExpand && uCloudAmount > 0.01) {
+          vec2 windA = uCloudOffsetA;
+          vec2 windB = uCloudOffsetB;
+
+          float cloudMacro = fbmMist(p * 2.4 + windA);
+          float cloudDetail = fbmMist(p * 4.8 + windB + cloudMacro * 0.65);
+
+          float verticalMask = smoothstep(0.54 - stormExpand, 0.76 - stormExpand * 0.5, uv.y) * smoothstep(1.03, 0.89, uv.y);
+          float cov = clamp(uCoverage + 0.18 + uStormFactor * 0.08, 0.35, 0.96);
+          float density = smoothstep(1.0 - cov, 0.86 - uStormFactor * 0.08, (cloudMacro * 0.62 + cloudDetail * 0.38)) * verticalMask * uCloudAmount;
+          density = clamp(density * (1.0 + uStormFactor * 0.26), 0.0, 1.0);
+
+          float topRim = smoothstep(0.35, 0.78, cloudDetail);
+          vec3 bright = mix(uCloudBright, vec3(1.0, 0.74, 0.55), uHorizonWarmth * 0.16);
+          vec3 cloudColor = mix(uCloudShadow, uCloudMid, smoothstep(0.15, 0.65, cloudMacro));
+          cloudColor = mix(cloudColor, bright, topRim * (0.78 - uStormFactor * 0.22));
+
+          if (uStormFactor > 0.02) {
+            float darkGrayBillow = fbmMist(p * 3.4 - windA * 0.85 + vec2(4.1, 2.3));
+            vec3 stormDarkGray = mix(vec3(0.20, 0.22, 0.26), vec3(0.36, 0.39, 0.44), smoothstep(0.28, 0.74, darkGrayBillow));
+            cloudColor = mix(cloudColor, stormDarkGray, uStormFactor * smoothstep(0.32, 0.78, darkGrayBillow) * 0.62);
+          }
+
+          cloudColor += vec3(0.42, 0.68, 1.0) * uLightningIntensity * topRim * 0.85;
+          col = mix(col, cloudColor, density * (0.86 + uStormFactor * 0.10));
+
+          // 4. Upper-Sky Ambient Mist Haze
+          if (uv.y > 0.58 && uMistAmount > 0.02) {
+            float mistBand = fbmMist(p * 3.2 - windA * 1.4) * smoothstep(0.60, 0.82, uv.y) * smoothstep(1.02, 0.86, uv.y);
+            col = mix(col, mix(uCloudBright, uCloudMid, 0.5), mistBand * uMistAmount * 0.16);
+          }
+        }
+
+        gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+      }
+    `;
+
+    function createShader(glCtx, type, source) {
+      const shader = glCtx.createShader(type);
+      glCtx.shaderSource(shader, source);
+      glCtx.compileShader(shader);
+      if (!glCtx.getShaderParameter(shader, glCtx.COMPILE_STATUS)) {
+        console.error('Shader compile error:', glCtx.getShaderInfoLog(shader));
+        glCtx.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    function initWebGLClouds() {
+      cloudCanvas = document.getElementById('cloudCanvas');
+      lightningCanvas = document.getElementById('lightningCanvas');
+      if (lightningCanvas) {
+        lightningCtx = lightningCanvas.getContext('2d', { alpha: true });
+      }
+      fxCanvas = document.getElementById('fxCanvas');
+      fxCtx = fxCanvas.getContext('2d', { alpha: true });
+
+      gl = cloudCanvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        preserveDrawingBuffer: false,
+        powerPreference: 'high-performance'
+      });
+      if (!gl) {
+        console.warn('WebGL unavailable, using fallback');
+        return;
+      }
+
+      const vs = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SRC);
+      const fs = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SRC);
+      if (!vs || !fs) return;
+
+      glProgram = gl.createProgram();
+      gl.attachShader(glProgram, vs);
+      gl.attachShader(glProgram, fs);
+      gl.linkProgram(glProgram);
+
+      if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) {
+        console.error('WebGL Program link error:', gl.getProgramInfoLog(glProgram));
+        return;
+      }
+
+      gl.useProgram(glProgram);
+
+      // Hide redundant DOM background blur layers behind opaque WebGL canvas to eliminate CSS compositor lag
+      const skyBg = document.getElementById('skyBackground');
+      if (skyBg) skyBg.style.display = 'none';
+
+      // Fullscreen quad buffer
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+        gl.STATIC_DRAW
+      );
+
+      const aPos = gl.getAttribLocation(glProgram, 'aPosition');
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+      // Cache uniform locations
+      const uniformNames = [
+        'uResolution', 'uTime',
+        'uCloudOffsetA', 'uCloudOffsetB', 'uParallax',
+        'uSkyTop', 'uSkyMid', 'uSkyHorizon',
+        'uCloudBright', 'uCloudMid', 'uCloudShadow',
+        'uCoverage', 'uStormFactor', 'uNightFactor',
+        'uCloudAmount', 'uMistAmount', 'uHorizonWarmth', 'uEveningFactor',
+        'uLightningIntensity'
+      ];
+      uniformNames.forEach(name => {
+        glUniforms[name] = gl.getUniformLocation(glProgram, name);
+      });
+    }
+
+    let rainSplashes = [];
+    let rimGlints = [];
+    let snowFlakes = [];
+    let snowRimPuffs = [];
+    let wetCardStates = [];
+
+    function initPrecipitation() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      rainDrops = [];
+      rainSplashes = [];
+      rimGlints = [];
+      snowFlakes = [];
+      snowRimPuffs = [];
+      const rainCount = w < 640 ? 115 : 210;
+      for (let i = 0; i < rainCount; i++) {
+        const depth = Math.random();
+        rainDrops.push({
+          x: Math.random() * (w + 220),
+          y: Math.random() * h,
+          length: 15 + depth * 24,
+          speed: 15 + depth * 17,
+          windShift: -3.0 - depth * 2.1,
+          alpha: 0.16 + depth * 0.38,
+          width: 0.75 + depth * 1.1,
+          canSplash: depth > 0.22 // Foreground & mid-plane drops collide with card tops
+        });
+      }
+
+      const snowCount = w < 640 ? 110 : 190;
+      for (let i = 0; i < snowCount; i++) {
+        const depth = Math.random();
+        snowFlakes.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          r: 1.0 + depth * 3.2,
+          speed: 0.9 + depth * 2.1,
+          windDrift: (Math.random() - 0.35) * (0.45 + depth * 0.65),
+          swayAmp: 0.35 + depth * 0.95,
+          swayFreq: 1.1 + Math.random() * 1.6,
+          phase: Math.random() * Math.PI * 2,
+          alpha: 0.28 + depth * 0.56,
+          canSettle: depth > 0.25
+        });
+      }
+    }
+
+    // Trace an organic droplet silhouette with a rounded bottom head and soft upper tail
+    function traceTeardropPath(ctx, rx, ry) {
+      const tipY = -ry * 1.15;
+      const bellyY = ry * 0.36;
+      const bottomY = ry * 1.12;
+
+      ctx.beginPath();
+      ctx.moveTo(0, tipY);
+      ctx.bezierCurveTo(
+        rx * 0.42, -ry * 0.72,
+        rx * 1.02, -ry * 0.06,
+        rx * 0.96, bellyY
+      );
+      ctx.bezierCurveTo(
+        rx * 0.90, ry * 0.92,
+        rx * 0.48, bottomY,
+        0, bottomY
+      );
+      ctx.bezierCurveTo(
+        -rx * 0.48, bottomY,
+        -rx * 0.90, ry * 0.92,
+        -rx * 0.96, bellyY
+      );
+      ctx.bezierCurveTo(
+        -rx * 1.02, -ry * 0.06,
+        -rx * 0.42, -ry * 0.72,
+        0, tipY
+      );
+      ctx.closePath();
+    }
+
+    // Draw a faint, muted greyish-translucent Apple water droplet where the top tail fades out completely
+    function drawAppleGlassDroplet(ctx, x, y, r, elongation = 1.24, alphaScale = 1.0, tilt = 0) {
+      if (r <= 0.4 || alphaScale <= 0.02) return;
+      const rx = r * 0.90;
+      const ry = r * elongation;
+      const tipY = -ry * 1.15;
+      const bottomY = ry * 1.12;
+
+      ctx.save();
+      ctx.translate(x, y);
+      if (tilt) ctx.rotate(tilt);
+      ctx.globalAlpha = alphaScale;
+
+      // 1. Subtle muted grey contact shadow beneath the rounded bottom head only
+      const shadowGrad = ctx.createRadialGradient(
+        rx * 0.04, ry * 0.68, rx * 0.08,
+        rx * 0.04, ry * 0.72, rx * 1.18
+      );
+      shadowGrad.addColorStop(0, 'rgba(8, 12, 22, 0.18)');
+      shadowGrad.addColorStop(0.65, 'rgba(12, 18, 30, 0.06)');
+      shadowGrad.addColorStop(1, 'rgba(12, 18, 30, 0)');
+      ctx.fillStyle = shadowGrad;
+      ctx.beginPath();
+      ctx.ellipse(rx * 0.04, ry * 0.72, rx * 0.98, ry * 0.56, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 2. Droplet path
+      traceTeardropPath(ctx, rx, ry);
+
+      // 3. Vertical fade-out fill: top tail is 100% transparent, fading smoothly into the rounded bottom head
+      const bodyGrad = ctx.createLinearGradient(0, tipY, 0, bottomY);
+      bodyGrad.addColorStop(0, 'rgba(148, 163, 184, 0)');       // Top tail completely invisible
+      bodyGrad.addColorStop(0.38, 'rgba(148, 163, 184, 0)');    // Upper taper stays faded out
+      bodyGrad.addColorStop(0.62, 'rgba(30, 41, 59, 0.08)');    // Soft mid transition
+      bodyGrad.addColorStop(0.84, 'rgba(148, 163, 184, 0.14)'); // Lower rounded belly
+      bodyGrad.addColorStop(1, 'rgba(203, 213, 225, 0.25)');    // Rounded bottom meniscus head
+      ctx.fillStyle = bodyGrad;
+      ctx.fill();
+
+      // 4. Rim stroke that ALSO fades out completely toward the top (only outlines the rounded bottom head)
+      const rimGrad = ctx.createLinearGradient(0, tipY, 0, bottomY);
+      rimGrad.addColorStop(0, 'rgba(190, 200, 214, 0)');
+      rimGrad.addColorStop(0.45, 'rgba(190, 200, 214, 0)');
+      rimGrad.addColorStop(0.72, 'rgba(190, 200, 214, 0.09)');
+      rimGrad.addColorStop(1, 'rgba(203, 213, 225, 0.20)');
+      ctx.lineWidth = Math.max(0.45, r * 0.11);
+      ctx.strokeStyle = rimGrad;
+      ctx.stroke();
+
+      // 5. Soft mist-grey highlight inside the lower rounded head, fading out upward
+      const hlTop = -ry * 0.05;
+      const hlBot = ry * 0.68;
+      const hlGrad = ctx.createLinearGradient(0, hlTop, 0, hlBot);
+      hlGrad.addColorStop(0, 'rgba(226, 232, 240, 0)');
+      hlGrad.addColorStop(0.45, 'rgba(226, 232, 240, 0.16)');
+      hlGrad.addColorStop(0.85, 'rgba(226, 232, 240, 0.30)');
+      hlGrad.addColorStop(1, 'rgba(226, 232, 240, 0.08)');
+      ctx.fillStyle = hlGrad;
+      ctx.beginPath();
+      ctx.ellipse(
+        -rx * 0.26,
+        ry * 0.34,
+        Math.max(0.4, rx * 0.17),
+        Math.max(0.5, ry * 0.26),
+        -0.18,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+
+      // 6. Faint lower belly crescent reflection on the rounded bottom rim
+      if (r >= 2.0) {
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.20)';
+        ctx.beginPath();
+        ctx.ellipse(
+          rx * 0.14,
+          ry * 0.80,
+          Math.max(0.45, rx * 0.24),
+          Math.max(0.28, ry * 0.09),
+          0.22,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // Pre-baked GPU Sprite Atlas (eliminates per-frame CanvasGradient & bezierCurveTo allocations on mobile GPUs)
+    let dropletSpriteCanvas = null;
+    let snowSpriteCanvas = null;
+    let rimGlintSpriteCanvas = null;
+    let currentScrollY = window.scrollY || 0;
+    let wetCardAccumDt = 0;
+
+    function buildParticleSpriteAtlas() {
+      if (!dropletSpriteCanvas) {
+        dropletSpriteCanvas = document.createElement('canvas');
+        dropletSpriteCanvas.width = 64;
+        dropletSpriteCanvas.height = 88;
+        const dctx = dropletSpriteCanvas.getContext('2d');
+        drawAppleGlassDroplet(dctx, 32, 44, 16, 1.24, 1.0, 0);
+      }
+
+      if (!snowSpriteCanvas) {
+        snowSpriteCanvas = document.createElement('canvas');
+        snowSpriteCanvas.width = 32;
+        snowSpriteCanvas.height = 32;
+        const sctx = snowSpriteCanvas.getContext('2d');
+        const grad = sctx.createRadialGradient(16, 16, 1.0, 16, 16, 15.0);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        grad.addColorStop(0.55, 'rgba(226, 240, 255, 0.65)');
+        grad.addColorStop(1, 'rgba(226, 240, 255, 0)');
+        sctx.fillStyle = grad;
+        sctx.beginPath();
+        sctx.arc(16, 16, 15.0, 0, Math.PI * 2);
+        sctx.fill();
+      }
+
+      if (!rimGlintSpriteCanvas) {
+        rimGlintSpriteCanvas = document.createElement('canvas');
+        rimGlintSpriteCanvas.width = 64;
+        rimGlintSpriteCanvas.height = 16;
+        const gctx = rimGlintSpriteCanvas.getContext('2d');
+        gctx.save();
+        gctx.translate(32, 8);
+        gctx.scale(1, 0.18);
+        const grad = gctx.createRadialGradient(0, 0, 1.5, 0, 0, 30);
+        grad.addColorStop(0, 'rgba(203, 213, 225, 1)');
+        grad.addColorStop(0.5, 'rgba(148, 163, 184, 0.42)');
+        grad.addColorStop(1, 'rgba(148, 163, 184, 0)');
+        gctx.fillStyle = grad;
+        gctx.beginPath();
+        gctx.arc(0, 0, 30, 0, Math.PI * 2);
+        gctx.fill();
+        gctx.restore();
+      }
+    }
+
+    function drawAppleDropletSprite(ctx, x, y, r, elong = 1.24, alpha = 1.0) {
+      if (r <= 0.4 || alpha <= 0.02 || !dropletSpriteCanvas) return;
+      const scaleX = r * 0.0625; // r / 16
+      const scaleY = (r * (elong / 1.24)) * 0.0625;
+      const w = 64 * scaleX;
+      const h = 88 * scaleY;
+      const prevAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = prevAlpha * alpha;
+      ctx.drawImage(dropletSpriteCanvas, x - w * 0.5, y - h * 0.5, w, h);
+      ctx.globalAlpha = prevAlpha;
+    }
+
+    function buildStaticWetCardLayer(state) {
+      const cw = state.width;
+      const ch = state.height;
+      if (cw < 20 || ch < 20) return;
+      buildParticleSpriteAtlas();
+
+      const dpr = state.dpr || 1;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = Math.floor(cw * dpr);
+      offscreen.height = Math.floor(ch * dpr);
+      const octx = offscreen.getContext('2d');
+      octx.scale(dpr, dpr);
+
+      // 1. Faint muted grey wet top-rim sheen where falling rain splashes onto the card
+      const topRimGrad = octx.createLinearGradient(0, 0, 0, 14);
+      topRimGrad.addColorStop(0, 'rgba(203, 213, 225, 0.14)');
+      topRimGrad.addColorStop(0.4, 'rgba(148, 163, 184, 0.05)');
+      topRimGrad.addColorStop(1, 'rgba(148, 163, 184, 0)');
+      octx.fillStyle = topRimGrad;
+      octx.fillRect(0, 0, cw, 14);
+
+      // 2. Generate organic non-overlapping teardrop water droplets across the glass background
+      const placed = [];
+      const area = cw * ch;
+      const targetDrops = Math.max(24, Math.min(64, Math.floor(area / 2150)));
+
+      // Extra top-rim splash teardrops near the top border (y = 6..34px)
+      const topRimCount = Math.max(8, Math.min(22, Math.floor(cw / 25)));
+      for (let i = 0; i < topRimCount; i++) {
+        const r = 1.2 + Math.random() * 2.3;
+        const x = 14 + Math.random() * Math.max(10, cw - 28);
+        const y = 5 + Math.pow(Math.random(), 1.35) * 28;
+        placed.push({
+          x,
+          y,
+          r,
+          elong: 1.18 + Math.random() * 0.24,
+          alpha: 0.36 + Math.random() * 0.24
+        });
+      }
+
+      // Main glass background clinging teardrop droplets (aligned vertically with gravity)
+      for (let attempt = 0; attempt < targetDrops * 4 && placed.length < targetDrops + topRimCount; attempt++) {
+        const sizeRoll = Math.random();
+        const r = sizeRoll < 0.48
+          ? (1.2 + Math.random() * 1.3)   // Small teardrop bead
+          : sizeRoll < 0.86
+            ? (2.4 + Math.random() * 1.9) // Medium egg/teardrop
+            : (4.2 + Math.random() * 1.8); // Larger hanging teardrop
+
+        const x = 12 + Math.random() * Math.max(10, cw - 24);
+        const y = 16 + Math.random() * Math.max(10, ch - 30);
+
+        let overlaps = false;
+        for (const p of placed) {
+          const dx = p.x - x;
+          const dy = p.y - y;
+          const minDist = (p.r + r) * 1.55 + 3.0;
+          if (dx * dx + dy * dy < minDist * minDist) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (!overlaps) {
+          const elong = 1.20 + (r / 6.0) * 0.22 + Math.random() * 0.14;
+          const alpha = 0.32 + Math.random() * 0.26;
+          placed.push({ x, y, r, elong, alpha });
+
+          // Add 1-2 tiny satellite teardrop beads directly above in the vertical gravity trail
+          if (r >= 3.4 && Math.random() < 0.72) {
+            const sx = x;
+            const sy = y - r * (1.9 + Math.random() * 1.0);
+            if (sx > 8 && sx < cw - 8 && sy > 8 && sy < ch - 8) {
+              placed.push({
+                x: sx,
+                y: sy,
+                r: 0.9 + Math.random() * 0.7,
+                elong: 1.18 + Math.random() * 0.15,
+                alpha: 0.34
+              });
+            }
+          }
+        }
+      }
+
+      for (const d of placed) {
+        drawAppleDropletSprite(octx, d.x, d.y, d.r, d.elong, d.alpha);
+      }
+
+      state.staticCanvas = offscreen;
+    }
+
+    function createSlidingDroplet(cw, ch, startAtTop = false) {
+      const r = 2.4 + Math.random() * 2.0;
+      return {
+        x: 18 + Math.random() * Math.max(12, cw - 36),
+        y: startAtTop ? (6 + Math.random() * 12) : (Math.random() * ch * 0.75),
+        r,
+        elong: 1.30 + Math.random() * 0.18,
+        vy: startAtTop ? (2.5 + Math.random() * 4.0) : (6.0 + Math.random() * 8.0),
+        gravity: 7.5 + Math.random() * 6.5, // Pure downward gravitational acceleration
+        maxVy: 22 + Math.random() * 12,
+        trailTimer: 0,
+        trailBeads: []
+      };
+    }
+
+    function getWetCardDpr() {
+      return window.innerWidth < 768 ? 1 : Math.min(1.5, window.devicePixelRatio || 1);
+    }
+
+    function cacheWetCardLayout() {
+      currentScrollY = window.scrollY || 0;
+      if (!wetCardStates) return;
+      for (let i = 0; i < wetCardStates.length; i++) {
+        const state = wetCardStates[i];
+        const rect = state.el.getBoundingClientRect();
+        state.pageTop = rect.top + currentScrollY;
+        state.left = rect.left;
+        state.right = rect.right;
+        state.visWidth = rect.width;
+        state.visHeight = rect.height;
+        state.rect = {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          bottom: rect.bottom,
+          width: rect.width,
+          height: rect.height
+        };
+      }
+    }
+
+    function initWetGlassCards() {
+      buildParticleSpriteAtlas();
+      const cards = document.querySelectorAll('.ios-glass.rounded-3xl');
+      wetCardStates = [];
+      currentScrollY = window.scrollY || 0;
+      const dpr = getWetCardDpr();
+
+      cards.forEach((cardEl, idx) => {
+        let canvas = cardEl.querySelector(':scope > .apple-wet-glass-canvas');
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.className = 'apple-wet-glass-canvas';
+          cardEl.insertBefore(canvas, cardEl.firstChild);
+        }
+
+        const rect = cardEl.getBoundingClientRect();
+        const minH = cardEl.id === 'govWeatherAlertSection' ? 560 : 1;
+        const cw = Math.max(1, Math.floor(rect.width));
+        const ch = Math.max(minH, Math.floor(rect.height));
+        canvas.width = Math.floor(cw * dpr);
+        canvas.height = Math.floor(ch * dpr);
+        canvas.style.height = `${ch}px`;
+
+        const ctx = canvas.getContext('2d');
+        const slidingCount = cw > 420 ? 3 : 2;
+        const slidingDrops = Array.from({ length: slidingCount }, () => createSlidingDroplet(cw, ch, false));
+
+        const state = {
+          index: idx,
+          el: cardEl,
+          canvas,
+          ctx,
+          dpr,
+          width: cw,
+          height: ch,
+          pageTop: rect.top + currentScrollY,
+          left: rect.left,
+          right: rect.right,
+          visWidth: rect.width,
+          visHeight: rect.height,
+          lastOpacityStr: '',
+          staticCanvas: null,
+          slidingDrops,
+          impactBeads: []
+        };
+
+        buildStaticWetCardLayer(state);
+        wetCardStates.push(state);
+      });
+    }
+
+    function resizeWetGlassCards() {
+      if (!wetCardStates || wetCardStates.length === 0) {
+        initWetGlassCards();
+        return;
+      }
+      const dpr = getWetCardDpr();
+      currentScrollY = window.scrollY || 0;
+      wetCardStates.forEach(state => {
+        const rect = state.el.getBoundingClientRect();
+        state.pageTop = rect.top + currentScrollY;
+        state.left = rect.left;
+        state.right = rect.right;
+        state.visWidth = rect.width;
+        state.visHeight = rect.height;
+        const minH = state.el.id === 'govWeatherAlertSection' ? 560 : 1;
+        const cw = Math.max(1, Math.floor(rect.width));
+        const ch = Math.max(minH, Math.floor(rect.height));
+        if (Math.abs(cw - state.width) > 2 || ch > state.height + 2 || (minH === 1 && Math.abs(ch - state.height) > 2)) {
+          state.width = cw;
+          state.height = ch;
+          state.dpr = dpr;
+          state.canvas.width = Math.floor(cw * dpr);
+          state.canvas.height = Math.floor(ch * dpr);
+          state.canvas.style.height = `${ch}px`;
+          buildStaticWetCardLayer(state);
+        }
+      });
+    }
+
+    function onCardTopRainHit(cardIdx, localX) {
+      const state = wetCardStates[cardIdx];
+      if (!state) return;
+      if (state.impactBeads.length < 10 && Math.random() < 0.38) {
+        state.impactBeads.push({
+          x: Math.max(12, Math.min(state.width - 12, localX + (Math.random() - 0.5) * 8)),
+          y: 3.5 + Math.random() * 5.5,
+          r: 1.3 + Math.random() * 1.7,
+          elong: 1.24 + Math.random() * 0.18,
+          life: 1.0,
+          vy: 2.2 + Math.random() * 4.8
+        });
+      }
+    }
+
+    function spawnCardTopSplash(x, y, cardIdx) {
+      const state = cardIdx !== undefined ? wetCardStates[cardIdx] : null;
+      const baseRelX = state ? (x - state.left) : x;
+
+      // Spawn 3-4 bouncing crown splash droplets anchored to the top edge of the card
+      const count = 3 + (Math.random() > 0.5 ? 1 : 0);
+      for (let i = 0; i < count; i++) {
+        const spread = (i / Math.max(1, count - 1) - 0.5) * 2.0;
+        rainSplashes.push({
+          cardIdx,
+          relX: baseRelX + spread * 3.0,
+          offsetY: -0.5,
+          x: x + spread * 3.0,
+          floorY: y,
+          vx: spread * (1.1 + Math.random() * 1.5) - 0.3,
+          vy: -1.5 - Math.random() * 2.2,
+          r: 0.9 + Math.random() * 1.0,
+          life: 1.0,
+          bounces: 0
+        });
+      }
+
+      // Spawn a subtle wet rim impact glint anchored along the top border of the card
+      if (rimGlints.length < 32) {
+        rimGlints.push({
+          cardIdx,
+          relX: baseRelX,
+          x,
+          y,
+          radius: 4 + Math.random() * 5,
+          maxRadius: 14 + Math.random() * 10,
+          life: 1.0
+        });
+      }
+
+      if (state) {
+        onCardTopRainHit(cardIdx, baseRelX);
+      }
+    }
+
+    function renderWetGlassCards(dt, elapsed, stormOpacity) {
+      if (!wetCardStates || wetCardStates.length === 0) return;
+
+      if (stormOpacity <= 0.02) {
+        for (let s = 0; s < wetCardStates.length; s++) {
+          const st = wetCardStates[s];
+          if (st.lastOpacityStr !== '0') {
+            st.lastOpacityStr = '0';
+            st.canvas.style.opacity = '0';
+          }
+        }
+        wetCardAccumDt = 0;
+        return;
+      }
+
+      // Update slow-moving card condensation at 30Hz to halve 2D canvas fill rate while keeping 60+ FPS scroll/rain
+      wetCardAccumDt += dt;
+      if (wetCardAccumDt < 0.031) return;
+      const stepDt = Math.min(0.065, wetCardAccumDt);
+      wetCardAccumDt = 0;
+
+      const targetOpStr = String(Math.min(1, stormOpacity * 0.85).toFixed(2));
+      const vh = window.innerHeight;
+
+      for (let s = 0; s < wetCardStates.length; s++) {
+        const state = wetCardStates[s];
+        if (state.lastOpacityStr !== targetOpStr) {
+          state.lastOpacityStr = targetOpStr;
+          state.canvas.style.opacity = targetOpStr;
+        }
+
+        // Compute viewport position from cached document coordinates (zero getBoundingClientRect reflows!)
+        const top = state.pageTop - currentScrollY;
+        const rHeight = state.visHeight;
+        const bottom = top + rHeight;
+        if (rHeight < 10 || bottom < -20 || top > vh + 20) continue;
+
+        const ctx = state.ctx;
+        const cw = state.width;
+        const ch = state.height;
+        const visH = Math.max(24, Math.min(ch, Math.floor(rHeight)));
+
+        ctx.save();
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        ctx.clearRect(0, 0, cw, visH);
+
+        // 1. Blit pre-rendered static teardrop condensation droplets at 1:1 scale
+        if (state.staticCanvas) {
+          ctx.drawImage(state.staticCanvas, 0, 0, cw, ch);
+        }
+
+        // 2. Update & draw live trickling teardrop droplets via pre-baked hardware sprite
+        for (let i = 0; i < state.slidingDrops.length; i++) {
+          const d = state.slidingDrops[i];
+          d.vy = Math.min(d.maxVy, d.vy + d.gravity * stepDt);
+          const stepY = d.vy * stepDt;
+          d.y += stepY;
+
+          d.trailTimer += stepY;
+          if (d.trailTimer > 11.0 && d.trailBeads.length < 5) {
+            d.trailTimer = 0;
+            d.trailBeads.push({
+              x: d.x,
+              y: d.y - d.r * 1.6,
+              r: 0.8 + Math.random() * 0.55,
+              life: 1.0
+            });
+          }
+
+          for (let b = d.trailBeads.length - 1; b >= 0; b--) {
+            const bead = d.trailBeads[b];
+            bead.life -= stepDt * 0.26;
+            if (bead.life <= 0) {
+              d.trailBeads.splice(b, 1);
+            } else {
+              drawAppleDropletSprite(ctx, bead.x, bead.y, bead.r, 1.18, bead.life * 0.42);
+            }
+          }
+
+          const bottomFade = d.y > visH - 28 ? Math.max(0, (visH - 8 - d.y) / 20) : 1.0;
+          const topFade = d.y < 14 ? Math.min(1, d.y / 10) : 1.0;
+          drawAppleDropletSprite(ctx, d.x, d.y, d.r, d.elong, bottomFade * topFade * 0.55);
+
+          if (d.y >= visH - 8) {
+            state.slidingDrops[i] = createSlidingDroplet(cw, visH, true);
+          }
+        }
+
+        // 3. Update & draw fresh top-rim teardrops spawned by falling rain hitting the top of the card
+        for (let i = state.impactBeads.length - 1; i >= 0; i--) {
+          const ib = state.impactBeads[i];
+          ib.y += ib.vy * stepDt;
+          ib.vy *= Math.pow(0.25, stepDt);
+          ib.life -= stepDt * 0.55;
+          if (ib.life <= 0) {
+            state.impactBeads.splice(i, 1);
+          } else {
+            drawAppleDropletSprite(ctx, ib.x, ib.y, ib.r, ib.elong || 1.24, ib.life * 0.50);
+          }
+        }
+
+        ctx.restore();
+      }
+    }
+
+    let lightningWindowElapsed = 10.0;
+    let pendingLightningStrikes = [];
+
+    function scheduleLightningWindow() {
+      lightningWindowElapsed = 0;
+      pendingLightningStrikes = [];
+      // Randomly pick 0 to 3 lightning strikes within each 10-second window
+      const strikeCount = Math.floor(Math.random() * 4);
+      for (let i = 0; i < strikeCount; i++) {
+        pendingLightningStrikes.push(0.5 + Math.random() * 9.0);
+      }
+      pendingLightningStrikes.sort((a, b) => a - b);
+    }
+
+    function spawnLightningBolt(w, h) {
+      const startX = w * (0.18 + Math.random() * 0.64);
+      const startY = h * (0.03 + Math.random() * 0.12);
+      const segments = [];
+      let currX = startX;
+      let currY = startY;
+      const steps = 15 + Math.floor(Math.random() * 9);
+
+      for (let i = 0; i < steps; i++) {
+        const nextX = currX + (Math.random() - 0.52) * 58;
+        const nextY = currY + 23 + Math.random() * 34;
+        segments.push({ x1: currX, y1: currY, x2: nextX, y2: nextY, main: true });
+
+        if (Math.random() < 0.30 && i > 2) {
+          let bx = currX;
+          let by = currY;
+          for (let b = 0; b < 5; b++) {
+            const nbx = bx + (Math.random() - 0.5) * 44;
+            const nby = by + 15 + Math.random() * 22;
+            segments.push({ x1: bx, y1: by, x2: nbx, y2: nby, main: false });
+            bx = nbx;
+            by = nby;
+          }
+        }
+        currX = nextX;
+        currY = nextY;
+      }
+
+      lightningIntensity = 1.45;
+
+      // Stay visible for 0.20s to 0.50s
+      const duration = 0.20 + Math.random() * 0.30;
+      activeBolts.push({
+        segments,
+        age: 0,
+        duration
+      });
+
+      const overlay = document.getElementById('lightningFlashOverlay');
+      if (overlay) {
+        overlay.style.opacity = '0.32';
+        setTimeout(() => {
+          lightningIntensity = Math.max(lightningIntensity, 1.05);
+          overlay.style.opacity = '0.18';
+          setTimeout(() => { overlay.style.opacity = '0'; }, Math.round(duration * 650));
+        }, Math.round(duration * 350));
+      }
+    }
+
+    let activeShootingStars = [];
+    let shootingStarCooldown = 1.6 + Math.random() * 1.8;
+
+    function spawnShootingStar(w, h) {
+      const dir = Math.random() < 0.65 ? 1 : -1;
+      const angle = (0.38 + Math.random() * 0.26); // ~22° to 37° downward angle
+      const speed = 340 + Math.random() * 150;
+      const startX = w * (dir > 0 ? (0.12 + Math.random() * 0.58) : (0.30 + Math.random() * 0.58));
+      const startY = h * (0.04 + Math.random() * 0.22);
+      activeShootingStars.push({
+        x: startX,
+        y: startY,
+        vx: Math.cos(angle) * speed * dir,
+        vy: Math.sin(angle) * speed,
+        tailLen: 46 + Math.random() * 32,
+        size: 1.05 + Math.random() * 0.45,
+        age: 0,
+        duration: 0.42 + Math.random() * 0.26
+      });
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function lerpVec3(arr, target, t) {
+      arr[0] = lerp(arr[0], target[0], t);
+      arr[1] = lerp(arr[1], target[1], t);
+      arr[2] = lerp(arr[2], target[2], t);
+    }
+
+    let fxCanvasDirty = false;
+    let lightningCanvasDirty = false;
+
+    function renderSkySimulation(now = performance.now()) {
+      const dt = Math.min(0.05, (now - lastFrameTime) * 0.001 || 0.016);
+      lastFrameTime = now;
+      const elapsed = (now - startTime) * 0.001;
+      if (now >= nextSkyClockUpdate) refreshSkyClock();
+
+      const targetPreset = targetSkyState;
+      const blendRate = Math.min(1.0, dt * 3.2);
+
+      lerpVec3(renderState.skyTop, targetPreset.skyTop, blendRate);
+      lerpVec3(renderState.skyMid, targetPreset.skyMid, blendRate);
+      lerpVec3(renderState.skyHorizon, targetPreset.skyHorizon, blendRate);
+      lerpVec3(renderState.cloudBright, targetPreset.cloudBright, blendRate);
+      lerpVec3(renderState.cloudMid, targetPreset.cloudMid, blendRate);
+      lerpVec3(renderState.cloudShadow, targetPreset.cloudShadow, blendRate);
+
+      renderState.coverage = lerp(renderState.coverage, targetPreset.coverage, blendRate);
+      renderState.windSpeed = lerp(renderState.windSpeed, targetPreset.windSpeed, blendRate);
+      renderState.stormFactor = lerp(renderState.stormFactor, targetPreset.stormFactor, blendRate);
+      renderState.nightFactor = lerp(renderState.nightFactor, targetPreset.nightFactor, blendRate);
+      renderState.cloudAmount = lerp(renderState.cloudAmount, targetPreset.cloudAmount, blendRate);
+      renderState.rainAmount = lerp(renderState.rainAmount, targetPreset.rainAmount, blendRate);
+      renderState.snowAmount = lerp(renderState.snowAmount || 0, targetPreset.snowAmount || 0, blendRate);
+      renderState.mistAmount = lerp(renderState.mistAmount, targetPreset.mistAmount, blendRate);
+      renderState.horizonWarmth = lerp(renderState.horizonWarmth, targetPreset.horizonWarmth, blendRate);
+      renderState.eveningFactor = lerp(renderState.eveningFactor, targetPreset.eveningFactor, blendRate);
+
+      const motionScale = motionPreference.matches ? 0 : 1;
+      const windDelta = dt * 0.22 * renderState.windSpeed * motionScale;
+      cloudTravel += windDelta;
+      cloudOffsetA[0] = (cloudOffsetA[0] + windDelta * 0.16) % 256;
+      cloudOffsetA[1] = Math.sin(cloudTravel * 0.35) * 0.04;
+      cloudOffsetB[0] = (cloudOffsetB[0] - windDelta * 0.11 + 256) % 256;
+      cloudOffsetB[1] = Math.cos(cloudTravel * 0.28) * 0.03;
+      pointerParallax.x = lerp(pointerParallax.x, pointerParallax.targetX * motionScale, dt * 4.0);
+      pointerParallax.y = lerp(pointerParallax.y, pointerParallax.targetY * motionScale, dt * 4.0);
+      renderSkyOverlays();
+
+      if (skyWeather.lightning) {
+        lightningWindowElapsed += dt;
+        if (lightningWindowElapsed >= 10.0) {
+          scheduleLightningWindow();
+        }
+        while (pendingLightningStrikes.length > 0 && lightningWindowElapsed >= pendingLightningStrikes[0]) {
+          pendingLightningStrikes.shift();
+          spawnLightningBolt(fxCanvas.width, fxCanvas.height);
+        }
+      }
+      lightningIntensity *= Math.exp(-dt * 4.5);
+
+      // Spawn 1 small shooting star every 2-4 seconds at night when skies are not stormy
+      if (motionScale > 0 && renderState.nightFactor > 0.55 && renderState.rainAmount < 0.30 && renderState.snowAmount < 0.30) {
+        shootingStarCooldown -= dt;
+        if (shootingStarCooldown <= 0) {
+          shootingStarCooldown = 2.0 + Math.random() * 2.0;
+          if (lightningCanvas) {
+            spawnShootingStar(lightningCanvas.width, lightningCanvas.height);
+          }
+        }
+      }
+
+      // 1. Render Real-Time 3D Volumetric Clouds via WebGL
+      if (gl && glProgram) {
+        gl.uniform2f(glUniforms.uResolution, cloudCanvas.width, cloudCanvas.height);
+        gl.uniform1f(glUniforms.uTime, elapsed % 628.3185);
+        gl.uniform2f(glUniforms.uCloudOffsetA, cloudOffsetA[0], cloudOffsetA[1]);
+        gl.uniform2f(glUniforms.uCloudOffsetB, cloudOffsetB[0], cloudOffsetB[1]);
+        gl.uniform2f(glUniforms.uParallax, pointerParallax.x, pointerParallax.y);
+
+        gl.uniform3fv(glUniforms.uSkyTop, renderState.skyTop);
+        gl.uniform3fv(glUniforms.uSkyMid, renderState.skyMid);
+        gl.uniform3fv(glUniforms.uSkyHorizon, renderState.skyHorizon);
+        gl.uniform3fv(glUniforms.uCloudBright, renderState.cloudBright);
+        gl.uniform3fv(glUniforms.uCloudMid, renderState.cloudMid);
+        gl.uniform3fv(glUniforms.uCloudShadow, renderState.cloudShadow);
+
+        gl.uniform1f(glUniforms.uCoverage, renderState.coverage);
+        gl.uniform1f(glUniforms.uStormFactor, renderState.stormFactor);
+        gl.uniform1f(glUniforms.uNightFactor, renderState.nightFactor);
+        gl.uniform1f(glUniforms.uCloudAmount, renderState.cloudAmount);
+        gl.uniform1f(glUniforms.uMistAmount, renderState.mistAmount);
+        gl.uniform1f(glUniforms.uHorizonWarmth, renderState.horizonWarmth);
+        gl.uniform1f(glUniforms.uEveningFactor, renderState.eveningFactor);
+        gl.uniform1f(glUniforms.uLightningIntensity, lightningIntensity);
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+
+      // 1b. Render Background Lightning Bolts & Night Shooting Stars on #lightningCanvas (z-0, behind mist & behind all UI cards)
+      if (lightningCtx && lightningCanvas) {
+        if (activeBolts.length > 0 || activeShootingStars.length > 0) {
+          lightningCtx.clearRect(0, 0, lightningCanvas.width, lightningCanvas.height);
+          lightningCanvasDirty = true;
+
+          // Render delicate night shooting stars in the upper sky
+          const nightVis = smoothSkyStep(0.50, 0.92, renderState.nightFactor) * (1.0 - renderState.stormFactor * 0.75);
+          for (let i = activeShootingStars.length - 1; i >= 0; i--) {
+            const s = activeShootingStars[i];
+            s.age += dt;
+            const progress = s.age / s.duration;
+            if (progress >= 1.0 || nightVis <= 0.01) {
+              activeShootingStars.splice(i, 1);
+              continue;
+            }
+            s.x += s.vx * dt;
+            s.y += s.vy * dt;
+
+            const fade = Math.sin(progress * Math.PI) * nightVis;
+            const spd = Math.hypot(s.vx, s.vy) || 1;
+            const dirX = s.vx / spd;
+            const dirY = s.vy / spd;
+            const tailLen = s.tailLen * (0.45 + 0.55 * Math.sin(progress * Math.PI));
+            const tailX = s.x - dirX * tailLen;
+            const tailY = s.y - dirY * tailLen;
+
+            lightningCtx.save();
+            lightningCtx.lineCap = 'round';
+            const grad = lightningCtx.createLinearGradient(s.x, s.y, tailX, tailY);
+            grad.addColorStop(0, `rgba(245, 250, 255, ${fade * 0.92})`);
+            grad.addColorStop(0.35, `rgba(186, 230, 253, ${fade * 0.45})`);
+            grad.addColorStop(1, 'rgba(147, 197, 253, 0)');
+            lightningCtx.strokeStyle = grad;
+            lightningCtx.lineWidth = s.size;
+            lightningCtx.beginPath();
+            lightningCtx.moveTo(tailX, tailY);
+            lightningCtx.lineTo(s.x, s.y);
+            lightningCtx.stroke();
+
+            if (snowSpriteCanvas) {
+              const headR = s.size * 2.5;
+              const prevAlpha = lightningCtx.globalAlpha;
+              lightningCtx.globalAlpha = fade * 0.95;
+              lightningCtx.drawImage(snowSpriteCanvas, s.x - headR, s.y - headR, headR * 2, headR * 2);
+              lightningCtx.globalAlpha = prevAlpha;
+            }
+            lightningCtx.restore();
+          }
+
+          for (let i = activeBolts.length - 1; i >= 0; i--) {
+            const bolt = activeBolts[i];
+            bolt.age += dt;
+            const progress = bolt.age / bolt.duration;
+            if (progress >= 1.0) {
+              activeBolts.splice(i, 1);
+              continue;
+            }
+
+            const envelope = progress < 0.65
+              ? (0.84 + 0.16 * Math.sin(bolt.age * 52.0))
+              : Math.max(0, 1.0 - (progress - 0.65) / 0.35);
+
+            lightningCtx.save();
+            lightningCtx.lineCap = 'round';
+            lightningCtx.lineJoin = 'round';
+
+            // Outer glow pass (single batched path instead of shadowBlur which is very slow on Android Skia)
+            lightningCtx.strokeStyle = `rgba(147, 197, 253, ${envelope * 0.28})`;
+            lightningCtx.lineWidth = 7.5;
+            lightningCtx.beginPath();
+            for (const seg of bolt.segments) {
+              if (seg.main) {
+                lightningCtx.moveTo(seg.x1, seg.y1);
+                lightningCtx.lineTo(seg.x2, seg.y2);
+              }
+            }
+            lightningCtx.stroke();
+
+            // Main core channel pass (batched)
+            lightningCtx.strokeStyle = `rgba(235, 245, 255, ${envelope * 0.92})`;
+            lightningCtx.lineWidth = 3.0;
+            lightningCtx.beginPath();
+            for (const seg of bolt.segments) {
+              if (seg.main) {
+                lightningCtx.moveTo(seg.x1, seg.y1);
+                lightningCtx.lineTo(seg.x2, seg.y2);
+              }
+            }
+            lightningCtx.stroke();
+
+            // Branch channel pass (batched)
+            lightningCtx.strokeStyle = `rgba(220, 238, 255, ${envelope * 0.50})`;
+            lightningCtx.lineWidth = 1.4;
+            lightningCtx.beginPath();
+            for (const seg of bolt.segments) {
+              if (!seg.main) {
+                lightningCtx.moveTo(seg.x1, seg.y1);
+                lightningCtx.lineTo(seg.x2, seg.y2);
+              }
+            }
+            lightningCtx.stroke();
+            lightningCtx.restore();
+          }
+        } else if (lightningCanvasDirty) {
+          lightningCtx.clearRect(0, 0, lightningCanvas.width, lightningCanvas.height);
+          lightningCanvasDirty = false;
+        }
+      }
+
+      // 2. Render Falling Rain, Falling Snow & Apple Card-Top Collision / Settling
+      if (fxCtx && fxCanvas) {
+        const hasStormFx = renderState.rainAmount > 0.02 || renderState.snowAmount > 0.02 || rainSplashes.length > 0 || rimGlints.length > 0 || snowRimPuffs.length > 0;
+        if (hasStormFx) {
+          const w = fxCanvas.width;
+          const h = fxCanvas.height;
+          fxCtx.clearRect(0, 0, w, h);
+          fxCanvasDirty = true;
+
+          // Compute live viewport bounding boxes from cached document offsets (ZERO getBoundingClientRect() calls per frame!)
+          const activeCardRects = [];
+          for (let i = 0; i < wetCardStates.length; i++) {
+            const st = wetCardStates[i];
+            const top = st.pageTop - currentScrollY;
+            const bottom = top + st.visHeight;
+            const prevTop = st.prevTop !== undefined ? st.prevTop : top;
+            st.prevTop = top;
+            if (bottom > 0 && top < h && st.visWidth > 40 && st.visHeight > 20) {
+              activeCardRects.push({
+                idx: i,
+                left: st.left,
+                right: st.right,
+                top,
+                prevTop,
+                bottom
+              });
+            }
+          }
+
+          if (renderState.rainAmount > 0.02) {
+            const rainOpacity = renderState.rainAmount;
+            const wetSplashOpacity = smoothSkyStep(0.02, 0.15, rainOpacity);
+            const activeRainCount = Math.ceil(rainDrops.length * (0.28 + rainOpacity * 0.72));
+            const rainStep = 0.65 + rainOpacity * 0.45;
+            const isScrollingNow = now < scrollPauseUntil;
+            fxCtx.lineCap = 'round';
+
+            // Batch all foreground and background rain streaks into 2 draw calls instead of 210 separate stroke() calls
+            fxCtx.strokeStyle = `rgba(190, 222, 255, ${(0.34 * rainOpacity).toFixed(3)})`;
+            fxCtx.lineWidth = 1.25;
+            fxCtx.beginPath();
+
+            for (let dropIdx = 0; dropIdx < activeRainCount; dropIdx++) {
+              const drop = rainDrops[dropIdx];
+              const prevTipY = drop.y + drop.length;
+              const nextX = drop.x + drop.windShift * rainStep;
+              const nextY = drop.y + drop.speed * rainStep;
+              const nextTipX = nextX + drop.windShift;
+              const nextTipY = nextY + drop.length;
+
+              let splashedOnCard = false;
+              let insideCardInterior = false;
+
+              for (let c = 0; c < activeCardRects.length; c++) {
+                const cr = activeCardRects[c];
+                const scrollJump = Math.abs(cr.top - cr.prevTop);
+                if (
+                  cr.top > 28 &&
+                  nextTipX >= cr.left + 16 &&
+                  nextTipX <= cr.right - 16
+                ) {
+                  if (!isScrollingNow && drop.canSplash && scrollJump < 4 && prevTipY <= cr.prevTop + 2 && nextTipY >= cr.top - 1) {
+                    const clampRatio = Math.max(0, Math.min(1, (cr.top - drop.y) / Math.max(1, drop.length)));
+                    if (clampRatio > 0.08) {
+                      fxCtx.moveTo(drop.x, drop.y);
+                      fxCtx.lineTo(drop.x + drop.windShift * clampRatio, cr.top);
+                    }
+                    spawnCardTopSplash(nextTipX, cr.top, cr.idx);
+                    splashedOnCard = true;
+                    break;
+                  } else if (nextTipY > cr.top + 6 && drop.y < cr.bottom - 8) {
+                    insideCardInterior = true;
+                    break;
+                  }
+                }
+              }
+
+              if (splashedOnCard) {
+                drop.y = -drop.length - Math.random() * 140;
+                drop.x = Math.random() * (w + 200);
+                continue;
+              }
+
+              if (!insideCardInterior) {
+                fxCtx.moveTo(drop.x, drop.y);
+                fxCtx.lineTo(drop.x + drop.windShift, drop.y + drop.length);
+              }
+
+              drop.x = nextX;
+              drop.y = nextY;
+              if (drop.y > h) {
+                drop.y = -drop.length - Math.random() * 60;
+                drop.x = Math.random() * (w + 200);
+              }
+            }
+            fxCtx.stroke();
+
+            // Render Wet Rim Impact Glints via pre-baked sprite (zero createRadialGradient per frame!)
+            if (rimGlintSpriteCanvas && rimGlints.length > 0) {
+              const prevAlpha = fxCtx.globalAlpha;
+              for (let i = rimGlints.length - 1; i >= 0; i--) {
+                const g = rimGlints[i];
+                g.radius = lerp(g.radius, g.maxRadius, dt * 14);
+                g.life -= dt * 4.8;
+                if (g.life <= 0) {
+                  rimGlints.splice(i, 1);
+                  continue;
+                }
+                const st = g.cardIdx !== undefined ? wetCardStates[g.cardIdx] : null;
+                const gx = st ? (st.left + g.relX) : g.x;
+                const gy = st ? (st.pageTop - currentScrollY) : g.y;
+                if (gy < -10 || gy > h + 10) continue;
+
+                fxCtx.globalAlpha = g.life * 0.45 * wetSplashOpacity;
+                fxCtx.drawImage(rimGlintSpriteCanvas, gx - g.radius, gy - 2.2, g.radius * 2, 4.4);
+              }
+              fxCtx.globalAlpha = prevAlpha;
+            }
+
+            // Render Bouncing Splash Droplets via pre-baked sprite (zero path tessellation per frame!)
+            for (let i = rainSplashes.length - 1; i >= 0; i--) {
+              const sp = rainSplashes[i];
+              sp.relX += sp.vx;
+              sp.offsetY += sp.vy;
+              sp.vy += 0.24;
+              sp.life -= dt * 2.4;
+
+              if (sp.offsetY >= 0 && sp.vy > 0) {
+                if (sp.bounces < 1) {
+                  sp.offsetY = 0;
+                  sp.vy = -sp.vy * 0.40;
+                  sp.vx *= 0.7;
+                  sp.bounces++;
+                } else {
+                  sp.life = 0;
+                }
+              }
+
+              if (sp.life <= 0) {
+                rainSplashes.splice(i, 1);
+                continue;
+              }
+
+              const st = sp.cardIdx !== undefined ? wetCardStates[sp.cardIdx] : null;
+              const sx = st ? (st.left + sp.relX) : (sp.x + sp.relX);
+              const sy = (st ? (st.pageTop - currentScrollY) : sp.floorY) + sp.offsetY;
+              if (sy < -15 || sy > h + 15) continue;
+
+              drawAppleDropletSprite(fxCtx, sx, sy, sp.r * 1.15, 1.24, sp.life * wetSplashOpacity * 0.85);
+            }
+          } else if (rainSplashes.length > 0 || rimGlints.length > 0) {
+            rainSplashes.length = 0;
+            rimGlints.length = 0;
+          }
+
+          // 2b. Render Apple Weather Multi-Depth Falling Snowflakes & Card-Top Frost Settling via pre-baked sprite
+          if (renderState.snowAmount > 0.02) {
+            const snowOpacity = renderState.snowAmount;
+            const allowSnowSettle = (targetSkyState.snowAmount || 0) > 0.01;
+            const activeSnowCount = Math.ceil(snowFlakes.length * (0.35 + snowOpacity * 0.65));
+            const snowStep = motionScale * (0.72 + snowOpacity * 0.38);
+            const isScrollingNow = now < scrollPauseUntil;
+            const prevAlpha = fxCtx.globalAlpha;
+
+            for (let sIdx = 0; sIdx < activeSnowCount; sIdx++) {
+              const flake = snowFlakes[sIdx];
+              const prevY = flake.y;
+              const sway = Math.sin(elapsed * flake.swayFreq + flake.phase) * flake.swayAmp;
+              const nextX = (flake.x + (flake.windDrift + sway * 0.45) * snowStep + w) % w;
+              const nextY = flake.y + flake.speed * snowStep;
+
+              let settledOnCard = false;
+              let insideCardInterior = false;
+
+              for (let c = 0; c < activeCardRects.length; c++) {
+                const cr = activeCardRects[c];
+                const scrollJump = Math.abs(cr.top - cr.prevTop);
+                if (cr.top > 28 && nextX >= cr.left + 18 && nextX <= cr.right - 18) {
+                  if (allowSnowSettle && !isScrollingNow && flake.canSettle && scrollJump < 4 && prevY <= cr.prevTop + 2 && nextY >= cr.top - 2) {
+                    if (snowRimPuffs.length < 90) {
+                      snowRimPuffs.push({
+                        cardIdx: cr.idx,
+                        relX: nextX - cr.left,
+                        x: nextX,
+                        y: cr.top,
+                        rx: 2.8 + flake.r * 1.6,
+                        ry: 1.2 + flake.r * 0.45,
+                        life: 1.0
+                      });
+                    }
+                    settledOnCard = true;
+                    break;
+                  } else if (nextY > cr.top + 5 && nextY < cr.bottom - 6) {
+                    insideCardInterior = true;
+                    break;
+                  }
+                }
+              }
+
+              if (settledOnCard) {
+                flake.y = -flake.r * 2 - Math.random() * 80;
+                flake.x = Math.random() * w;
+                continue;
+              }
+
+              if (!insideCardInterior && snowSpriteCanvas) {
+                fxCtx.globalAlpha = flake.alpha * snowOpacity;
+                const dSize = flake.r * 2.1;
+                fxCtx.drawImage(snowSpriteCanvas, nextX - flake.r, nextY - flake.r, dSize, dSize);
+              }
+
+              flake.x = nextX;
+              flake.y = nextY;
+              if (flake.y > h + 10) {
+                flake.y = -flake.r * 2 - Math.random() * 50;
+                flake.x = Math.random() * w;
+              }
+            }
+
+            if (snowSpriteCanvas) {
+              for (let i = snowRimPuffs.length - 1; i >= 0; i--) {
+                const puff = snowRimPuffs[i];
+                puff.life -= dt * (allowSnowSettle ? 0.28 : 2.4);
+                if (puff.life <= 0) {
+                  snowRimPuffs.splice(i, 1);
+                  continue;
+                }
+                const st = puff.cardIdx !== undefined ? wetCardStates[puff.cardIdx] : null;
+                const px = st ? (st.left + puff.relX) : puff.x;
+                const py = st ? (st.pageTop - currentScrollY) : puff.y;
+                if (py < -10 || py > h + 10) continue;
+
+                fxCtx.globalAlpha = puff.life * snowOpacity * 0.62;
+                fxCtx.drawImage(snowSpriteCanvas, px - puff.rx, py - puff.ry, puff.rx * 2, puff.ry * 2);
+              }
+            }
+            fxCtx.globalAlpha = prevAlpha;
+          } else if (snowRimPuffs.length > 0) {
+            snowRimPuffs.length = 0;
+          }
+        } else if (fxCanvasDirty) {
+          fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+          fxCanvasDirty = false;
+        }
+      }
+
+      // 3. Render Apple Clinging & Sliding Water Droplets on Glass Card Backgrounds (equal visibility across all rain conditions)
+      const wetCardOpacity = smoothSkyStep(0.02, 0.15, renderState.rainAmount);
+      renderWetGlassCards(dt, elapsed, wetCardOpacity);
+
+      requestAnimationFrame(renderSkySimulation);
+    }
+
+    let scrollPauseUntil = 0;
+
+    function setupCanvas() {
+      initWebGLClouds();
+      initWetGlassCards();
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('scroll', () => {
+        currentScrollY = window.scrollY || 0;
+        scrollPauseUntil = performance.now() + 90;
+        rainSplashes.length = 0;
+        rimGlints.length = 0;
+        snowRimPuffs.length = 0;
+      }, { passive: true });
+      window.addEventListener('pointermove', (e) => {
+        pointerParallax.targetX = (e.clientX / Math.max(1, window.innerWidth) - 0.5) * 2.0;
+        pointerParallax.targetY = (e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2.0;
+      }, { passive: true });
+    }
+
+    function resizeCanvas() {
+      if (!cloudCanvas || !fxCanvas) return;
+      // Apple Weather Half-Resolution Volumetric Sky Render Target:
+      // Clouds and atmospheric gradients are soft low-frequency signals, so rendering at ~0.55x resolution
+      // with hardware bilinear upscaling looks 100% identical while cutting mobile GPU fragment load by ~70%.
+      const isMobile = window.innerWidth < 768;
+      const scale = isMobile ? 0.52 : 0.72;
+      cloudCanvas.width = Math.min(1080, Math.max(360, Math.floor(window.innerWidth * scale)));
+      cloudCanvas.height = Math.min(720, Math.max(280, Math.floor(window.innerHeight * scale)));
+      if (gl) {
+        gl.viewport(0, 0, cloudCanvas.width, cloudCanvas.height);
+      }
+
+      if (lightningCanvas) {
+        lightningCanvas.width = window.innerWidth;
+        lightningCanvas.height = window.innerHeight;
+      }
+
+      fxCanvas.width = window.innerWidth;
+      fxCanvas.height = window.innerHeight;
+      initPrecipitation();
+      resizeWetGlassCards();
+      if (typeof resizeMapOverlayCanvas === 'function') {
+        resizeMapOverlayCanvas();
+      }
+    }
+
+    // ============================================================================
+    // REAL-TIME WEATHER SYSTEM + CARTO MAP INTEGRATION
+    // ============================================================================
+    const CARTO_API_KEY = 'cb1_4gd0_1_52457291b5c044348b79e1bf';
+
+    const CARTO_STYLES = [
+      { id: 'dark_all', label: 'Dark Map', icon: 'moon' },
+      { id: 'light_all', label: 'Light Map', icon: 'sun' }
+    ];
+    let currentCartoStyleIdx = 0;
+
+    // Preset Coordinates for Quick City Buttons (1st: Bangkok, 2nd: Tokyo, 3rd: California)
+    const PRESET_LOCATIONS = {
+      bangkok: { name: 'Bangkok', admin1: 'Bangkok', country: 'Thailand', countryCode: 'TH', lat: 13.7563, lon: 100.5018, themeKey: 'rainy' },
+      tokyo: { name: 'Tokyo', admin1: 'Tokyo', country: 'Japan', countryCode: 'JP', lat: 35.6762, lon: 139.6503, themeKey: 'night' },
+      california: { name: 'California', admin1: 'Cupertino, CA', country: 'United States', countryCode: 'US', lat: 37.3230, lon: -122.0322, themeKey: 'sunny' }
+    };
+
+    let activePresetKey = 'bangkok';
+    let useCelsius = true;
+    let activeLocation = { ...PRESET_LOCATIONS.bangkok };
+    let latestWeatherData = null; // Stores raw F/mph values for seamless °F/°C toggling
+
+    // Leaflet & CARTO Map State
+    let cartoMap = null;
+    let cartoTileLayer = null;
+    let locationMarker = null;
+    let mapOverlayMode = 'radar'; // 'radar' | 'temp' | 'wind'
+
+    // RainViewer Radar State
+    let radarFrames = [];
+    let radarLayers = {};
+    let currentRadarFrameIdx = 0;
+    let radarTimer = null;
+    let isRadarPlaying = false;
+    let rainViewerHost = 'https://tilecache.rainviewer.com';
+
+    // Map Canvas Overlay (Wind Streamlines & Temperature Thermal Field)
+    let mapOverlayCanvas = null;
+    let mapOverlayCtx = null;
+    let windParticles = [];
+
+    let tenDayData = [
+      { day: 'Today', icon: 'sun', min: 56, max: 79, isToday: true },
+      { day: 'Sun', icon: 'cloud-sun', min: 55, max: 76 },
+      { day: 'Mon', icon: 'cloud', min: 54, max: 72 },
+      { day: 'Tue', icon: 'cloud-rain', min: 52, max: 68, pop: '60%' },
+      { day: 'Wed', icon: 'cloud-lightning', min: 50, max: 65, pop: '85%' },
+      { day: 'Thu', icon: 'cloud-sun', min: 51, max: 70 },
+      { day: 'Fri', icon: 'sun', min: 53, max: 74 },
+      { day: 'Sat', icon: 'sun', min: 55, max: 77 },
+      { day: 'Sun', icon: 'cloud-sun', min: 56, max: 75 },
+      { day: 'Mon', icon: 'sun', min: 57, max: 80 }
+    ];
+
+    function fmtTemp(tempF) {
+      if (tempF === null || tempF === undefined || isNaN(tempF)) return '--';
+      return useCelsius ? Math.round((tempF - 32) * 5 / 9) : Math.round(tempF);
+    }
+
+    function fmtSpeed(mph) {
+      if (mph === null || mph === undefined || isNaN(mph)) return '--';
+      return useCelsius ? Math.round(mph * 1.60934) : Math.round(mph);
+    }
+
+    function degToCompass(deg) {
+      const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+      return dirs[Math.round(((deg %= 360) < 0 ? deg + 360 : deg) / 22.5) % 16];
+    }
+
+    function wmoToInfo(code, isDay = 1) {
+      const day = isDay !== 0;
+      if (code === 0) return { label: day ? 'Clear Sky' : 'Clear Night', icon: day ? 'sun' : 'moon', theme: day ? 'sunny' : 'night' };
+      if (code === 1) return { label: day ? 'Mostly Clear' : 'Mostly Clear Night', icon: day ? 'sun' : 'moon', theme: day ? 'sunny' : 'night' };
+      if (code === 2) return { label: 'Partly Cloudy', icon: day ? 'cloud-sun' : 'cloud-moon', theme: day ? 'sunny' : 'night' };
+      if (code === 3) return { label: 'Overcast', icon: 'cloud', theme: day ? 'sunny' : 'night' };
+      if (code === 45 || code === 48) return { label: 'Foggy Conditions', icon: 'cloud-fog', theme: 'rainy' };
+      if (code >= 51 && code <= 57) return { label: 'Light Drizzle', icon: 'cloud-drizzle', theme: 'rainy' };
+      if (code === 61 || code === 66) return { label: 'Light Rain', icon: 'cloud-drizzle', theme: 'rainy' };
+      if (code === 63) return { label: 'Moderate Rain', icon: 'cloud-rain', theme: 'rainy' };
+      if (code === 65 || code === 67) return { label: 'Heavy Rain', icon: 'cloud-rain', theme: 'rainy' };
+      if (code === 71) return { label: 'Light Snow', icon: 'cloud-snow', theme: 'rainy' };
+      if (code === 73) return { label: 'Moderate Snow', icon: 'cloud-snow', theme: 'rainy' };
+      if (code === 75) return { label: 'Heavy Snow', icon: 'cloud-snow', theme: 'rainy' };
+      if (code === 77) return { label: 'Snow Grains', icon: 'cloud-snow', theme: 'rainy' };
+      if (code === 80) return { label: 'Light Rain Showers', icon: 'cloud-drizzle', theme: 'rainy' };
+      if (code === 81) return { label: 'Moderate Rain Showers', icon: 'cloud-rain', theme: 'rainy' };
+      if (code === 82) return { label: 'Heavy Rain Showers', icon: 'cloud-rain', theme: 'rainy' };
+      if (code === 85) return { label: 'Light Snow Showers', icon: 'cloud-snow', theme: 'rainy' };
+      if (code === 86) return { label: 'Heavy Snow Showers', icon: 'cloud-snow', theme: 'rainy' };
+      if (code >= 95) return { label: 'Thunderstorms', icon: 'cloud-lightning', theme: 'rainy' };
+      return { label: 'Partly Cloudy', icon: day ? 'cloud-sun' : 'cloud', theme: day ? 'sunny' : 'night' };
+    }
+
+    // Initialize CARTO Interactive Map with API Key
+    function initCartoMap() {
+      const mapEl = document.getElementById('cartoMap');
+      if (!mapEl || typeof L === 'undefined') return;
+
+      cartoMap = L.map('cartoMap', {
+        center: [activeLocation.lat, activeLocation.lon],
+        zoom: 7,
+        zoomControl: true,
+        attributionControl: true
+      });
+
+      cartoMap.zoomControl.setPosition('topright');
+
+      setCartoBasemapLayer(0);
+      updateMapMarker(activeLocation.lat, activeLocation.lon, activeLocation.name, 82, 'Tropical Rain & Mist');
+
+      // Click anywhere on CARTO map to inspect real-time weather at that coordinate
+      cartoMap.on('click', async function (e) {
+        const lat = e.latlng.lat;
+        const lon = ((e.latlng.lng + 180) % 360 + 360) % 360 - 180;
+        activePresetKey = null;
+        updatePresetButtonHighlight();
+        await fetchLiveWeatherByCoords(lat, lon, null, true);
+      });
+
+      // Setup custom canvas overlay for Wind Particles & Temp Field
+      mapOverlayCanvas = document.getElementById('mapOverlayCanvas');
+      if (mapOverlayCanvas) {
+        mapOverlayCtx = mapOverlayCanvas.getContext('2d');
+        resizeMapOverlayCanvas();
+        initWindParticles();
+        requestAnimationFrame(renderMapCanvasOverlay);
+      }
+
+      cartoMap.on('move resize zoom', () => {
+        resizeMapOverlayCanvas();
+      });
+
+      // Load Live RainViewer Weather Radar Tiles
+      loadRainViewerRadar();
+    }
+
+    function setCartoBasemapLayer(styleIdx) {
+      if (!cartoMap) return;
+      currentCartoStyleIdx = styleIdx % CARTO_STYLES.length;
+      const styleObj = CARTO_STYLES[currentCartoStyleIdx];
+
+      if (cartoTileLayer) {
+        cartoMap.removeLayer(cartoTileLayer);
+      }
+
+      const cartoUrl = `https://{s}.basemaps.cartocdn.com/${styleObj.id}/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(CARTO_API_KEY)}`;
+      cartoTileLayer = L.tileLayer(cartoUrl, {
+        subdomains: 'abcd',
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OSM</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>'
+      }).addTo(cartoMap);
+
+      cartoTileLayer.bringToBack();
+
+      const labelEl = document.getElementById('cartoThemeBtn');
+      if (labelEl) {
+        const iconName = styleObj.icon || (currentCartoStyleIdx === 0 ? 'moon' : 'sun');
+        const iconColor = iconName === 'sun' ? 'text-amber-300' : 'text-sky-200';
+        labelEl.innerHTML = `<i data-lucide="${iconName}" class="w-3.5 h-3.5 ${iconColor} transition-transform duration-300"></i>`;
+        labelEl.title = `Switch Map Theme (${styleObj.label})`;
+        lucide.createIcons();
+      }
+    }
+
+    function cycleCartoBasemap() {
+      triggerMorphAnimation(['cartoThemeBtn']);
+      setCartoBasemapLayer(currentCartoStyleIdx + 1);
+    }
+
+    function updateMapMarker(lat, lon, cityName, tempF, conditionText) {
+      if (!cartoMap) return;
+      const displayTemp = fmtTemp(tempF);
+      const unitSymbol = useCelsius ? '°C' : '°F';
+
+      const iconHtml = `
+        <div class="weather-map-marker">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
+          <span>${cityName}</span>
+          <span class="text-sky-300 font-bold">${displayTemp}${unitSymbol}</span>
+        </div>
+      `;
+
+      const customIcon = L.divIcon({
+        html: iconHtml,
+        className: 'custom-weather-pin',
+        iconSize: [140, 32],
+        iconAnchor: [70, 16]
+      });
+
+      if (locationMarker) {
+        locationMarker.setLatLng([lat, lon]);
+        locationMarker.setIcon(customIcon);
+      } else {
+        locationMarker = L.marker([lat, lon], { icon: customIcon }).addTo(cartoMap);
+      }
+    }
+
+    // Load Live Doppler Radar from RainViewer API
+    async function loadRainViewerRadar() {
+      try {
+        const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+        if (!res.ok) throw new Error('Radar API unavailable');
+        const data = await res.json();
+        if (data.host) rainViewerHost = data.host;
+        const past = (data.radar && data.radar.past) ? data.radar.past : [];
+        const nowcast = (data.radar && data.radar.nowcast) ? data.radar.nowcast : [];
+        radarFrames = [...past.slice(-6), ...nowcast.slice(0, 2)];
+
+        if (radarFrames.length > 0) {
+          currentRadarFrameIdx = past.length > 0 ? Math.min(past.length - 1, radarFrames.length - 1) : 0;
+          showRadarFrame(currentRadarFrameIdx);
+        }
+      } catch (err) {
+        const tsEl = document.getElementById('radarTimestamp');
+        if (tsEl) tsEl.textContent = 'LIVE RADAR';
+      }
+    }
+
+    function showRadarFrame(idx) {
+      if (!cartoMap || radarFrames.length === 0) return;
+      const frame = radarFrames[idx];
+      if (!frame) return;
+
+      // Hide other frames
+      Object.values(radarLayers).forEach(layer => {
+        if (cartoMap.hasLayer(layer)) layer.setOpacity(0);
+      });
+
+      if (mapOverlayMode === 'radar') {
+        if (!radarLayers[frame.path]) {
+          radarLayers[frame.path] = L.tileLayer(`${rainViewerHost}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+            tileSize: 256,
+            minZoom: 1,
+            maxNativeZoom: 7,
+            maxZoom: 19,
+            opacity: 0.72,
+            zIndex: 200,
+            className: 'rainviewer-radar-tiles'
+          });
+        }
+        const activeLayer = radarLayers[frame.path];
+        if (!cartoMap.hasLayer(activeLayer)) {
+          activeLayer.addTo(cartoMap);
+        }
+        activeLayer.setOpacity(0.72);
+      }
+
+      const tsEl = document.getElementById('radarTimestamp');
+      if (tsEl && frame.time) {
+        const dt = new Date(frame.time * 1000);
+        tsEl.textContent = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+
+    function toggleRadarAnimation() {
+      if (radarFrames.length === 0) return;
+      isRadarPlaying = !isRadarPlaying;
+      const btn = document.getElementById('radarPlayBtn');
+
+      if (isRadarPlaying) {
+        if (btn) btn.innerHTML = '<i data-lucide="pause" class="w-3.5 h-3.5 fill-current"></i>';
+        lucide.createIcons();
+        radarTimer = setInterval(() => {
+          currentRadarFrameIdx = (currentRadarFrameIdx + 1) % radarFrames.length;
+          showRadarFrame(currentRadarFrameIdx);
+        }, 650);
+      } else {
+        if (btn) btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>';
+        lucide.createIcons();
+        clearInterval(radarTimer);
+      }
+    }
+
+    function positionSegmentedSlider(sliderId, activeBtn) {
+      const slider = document.getElementById(sliderId);
+      if (!slider) return;
+      if (!activeBtn) {
+        slider.style.opacity = '0';
+        slider.style.transform = 'scale(0.92)';
+        return;
+      }
+      slider.style.opacity = '1';
+      slider.style.width = `${activeBtn.offsetWidth}px`;
+      slider.style.transform = `translate3d(${activeBtn.offsetLeft}px, 0, 0) scale(1)`;
+    }
+
+    function triggerMorphAnimation(elementIds) {
+      elementIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('weather-morph-anim');
+        void el.offsetWidth; // force reflow to restart animation cleanly
+        el.classList.add('weather-morph-anim');
+      });
+    }
+
+    function setMapOverlayMode(mode) {
+      mapOverlayMode = mode;
+      let activeBtnEl = null;
+      ['radar', 'temp', 'wind'].forEach(k => {
+        const btn = document.getElementById(`map-btn-${k}`);
+        if (!btn) return;
+        if (k === mode) {
+          btn.className = 'seg-pill-btn px-2.5 py-1 rounded-full text-white font-semibold';
+          activeBtnEl = btn;
+        } else {
+          btn.className = 'seg-pill-btn px-2.5 py-1 rounded-full text-white/70 hover:text-white font-normal';
+        }
+      });
+
+      positionSegmentedSlider('mapLayerSlider', activeBtnEl);
+      triggerMorphAnimation(['mapOverlayCanvas']);
+
+      const legendEl = document.getElementById('mapLegendContainer');
+      const radarCtrl = document.getElementById('radarTimelineControls');
+
+      if (mode === 'radar') {
+        showRadarFrame(currentRadarFrameIdx);
+        if (radarCtrl) radarCtrl.style.display = 'flex';
+        if (legendEl) {
+          legendEl.innerHTML = `
+            <span>Light</span>
+            <div class="w-16 h-1.5 rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 via-yellow-400 to-rose-500"></div>
+            <span>Heavy</span>
+          `;
+        }
+      } else {
+        // Hide RainViewer tiles when viewing Wind or Temperature layers
+        Object.values(radarLayers).forEach(layer => {
+          if (cartoMap && cartoMap.hasLayer(layer)) layer.setOpacity(0);
+        });
+        if (radarCtrl) radarCtrl.style.display = 'none';
+
+        if (mode === 'temp' && legendEl) {
+          legendEl.innerHTML = `
+            <span>Cold</span>
+            <div class="w-20 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-sky-400 via-emerald-400 via-amber-400 to-rose-500"></div>
+            <span>Hot</span>
+          `;
+        } else if (mode === 'wind' && legendEl) {
+          const spd = latestWeatherData ? fmtSpeed(latestWeatherData.windSpeedMph) : 12;
+          const unit = useCelsius ? 'km/h' : 'mph';
+          legendEl.innerHTML = `
+            <span class="text-sky-300 font-semibold">Live Streamlines</span>
+            <span>&middot;</span>
+            <span>${spd} ${unit}</span>
+          `;
+        }
+      }
+      drawMapOverlayOnceOrStartLoop();
+    }
+
+    let mapWindAnimRunning = false;
+
+    function drawMapOverlayOnceOrStartLoop() {
+      if (mapOverlayMode === 'wind') {
+        if (!mapWindAnimRunning) {
+          mapWindAnimRunning = true;
+          requestAnimationFrame(renderMapCanvasOverlay);
+        }
+      } else {
+        mapWindAnimRunning = false;
+        renderStaticMapOverlay();
+      }
+    }
+
+    function resizeMapOverlayCanvas() {
+      if (!mapOverlayCanvas) return;
+      const rect = mapOverlayCanvas.parentElement.getBoundingClientRect();
+      mapOverlayCanvas.width = rect.width;
+      mapOverlayCanvas.height = rect.height;
+      if (mapOverlayMode !== 'wind') {
+        renderStaticMapOverlay();
+      }
+    }
+
+    function initWindParticles() {
+      windParticles = [];
+      for (let i = 0; i < 65; i++) {
+        windParticles.push({
+          x: Math.random() * 600,
+          y: Math.random() * 400,
+          age: Math.random() * 100,
+          maxAge: 65 + Math.random() * 55,
+          speedMul: 0.7 + Math.random() * 0.6
+        });
+      }
+    }
+
+    function renderStaticMapOverlay() {
+      if (!mapOverlayCtx || !mapOverlayCanvas) return;
+      const w = mapOverlayCanvas.width;
+      const h = mapOverlayCanvas.height;
+      mapOverlayCtx.clearRect(0, 0, w, h);
+
+      if (mapOverlayMode === 'temp') {
+        const tempF = latestWeatherData ? latestWeatherData.tempF : WEATHER_THEMES[currentMode].temp;
+        let colorCenter = 'rgba(251, 191, 36, 0.38)';
+        let colorEdge = 'rgba(56, 189, 248, 0.16)';
+
+        if (tempF >= 80) {
+          colorCenter = 'rgba(244, 63, 94, 0.44)';
+          colorEdge = 'rgba(251, 146, 60, 0.22)';
+        } else if (tempF <= 52) {
+          colorCenter = 'rgba(56, 189, 248, 0.42)';
+          colorEdge = 'rgba(99, 102, 241, 0.20)';
+        }
+
+        let cx = w * 0.5, cy = h * 0.5;
+        if (cartoMap && activeLocation) {
+          const pt = cartoMap.latLngToContainerPoint([activeLocation.lat, activeLocation.lon]);
+          cx = pt.x;
+          cy = pt.y;
+        }
+
+        const grad = mapOverlayCtx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * 0.65);
+        grad.addColorStop(0, colorCenter);
+        grad.addColorStop(0.55, colorEdge);
+        grad.addColorStop(1, 'rgba(15, 23, 42, 0.0)');
+        mapOverlayCtx.fillStyle = grad;
+        mapOverlayCtx.fillRect(0, 0, w, h);
+      }
+    }
+
+    function renderMapCanvasOverlay() {
+      if (mapOverlayMode !== 'wind') {
+        mapWindAnimRunning = false;
+        renderStaticMapOverlay();
+        return;
+      }
+
+      if (mapOverlayCtx && mapOverlayCanvas) {
+        const w = mapOverlayCanvas.width;
+        const h = mapOverlayCanvas.height;
+
+        mapOverlayCtx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        mapOverlayCtx.fillRect(0, 0, w, h);
+
+        // Clear gently using destination-in fade so map stays crisp underneath
+        mapOverlayCtx.globalCompositeOperation = 'destination-in';
+        mapOverlayCtx.fillStyle = 'rgba(255, 255, 255, 0.91)';
+        mapOverlayCtx.fillRect(0, 0, w, h);
+        mapOverlayCtx.globalCompositeOperation = 'source-over';
+
+        const windDeg = latestWeatherData ? latestWeatherData.windDir : (WEATHER_THEMES[currentMode].windDir || 45);
+        const windMph = latestWeatherData ? latestWeatherData.windSpeedMph : (WEATHER_THEMES[currentMode].wind || 10);
+        const rad = ((windDeg + 180) * Math.PI) / 180;
+        const speedPx = Math.max(1.2, Math.min(4.5, windMph * 0.16));
+
+        mapOverlayCtx.strokeStyle = 'rgba(125, 211, 252, 0.78)';
+        mapOverlayCtx.lineWidth = 1.6;
+        mapOverlayCtx.lineCap = 'round';
+        mapOverlayCtx.beginPath();
+
+        const nowSec = performance.now() * 0.001;
+        for (let p of windParticles) {
+          const prevX = p.x;
+          const prevY = p.y;
+          const curl = Math.sin(p.x * 0.015 + p.y * 0.015 + nowSec) * 0.35;
+          p.x += Math.sin(rad + curl) * speedPx * p.speedMul;
+          p.y -= Math.cos(rad + curl) * speedPx * p.speedMul;
+          p.age++;
+
+          mapOverlayCtx.moveTo(prevX, prevY);
+          mapOverlayCtx.lineTo(p.x, p.y);
+
+          if (p.age > p.maxAge || p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
+            p.x = Math.random() * w;
+            p.y = Math.random() * h;
+            p.age = 0;
+          }
+        }
+        mapOverlayCtx.stroke();
+      }
+      requestAnimationFrame(renderMapCanvasOverlay);
+    }
+
+    // ============================================================================
+    // LIVE OPEN-METEO WEATHER, AIR QUALITY, GEOCODING & GOVERNMENT ALERTS
+    // ============================================================================
+    const GOV_WEATHER_AGENCIES = {
+      TH: 'THAI METEOROLOGICAL DEPARTMENT · กรมอุตุนิยมวิทยา (TMD)',
+      JP: 'JAPAN METEOROLOGICAL AGENCY · 気象庁 (JMA)',
+      US: 'NATIONAL WEATHER SERVICE · NOAA (NWS)',
+      CA: 'ENVIRONMENT AND CLIMATE CHANGE CANADA (ECCC)',
+      GB: 'UK MET OFFICE · SEVERE WEATHER WARNING SERVICE',
+      AU: 'AUSTRALIAN BUREAU OF METEOROLOGY (BOM)',
+      CN: 'CHINA METEOROLOGICAL ADMINISTRATION · 中国气象局 (CMA)',
+      KR: 'KOREA METEOROLOGICAL ADMINISTRATION · 기상청 (KMA)',
+      TW: 'CENTRAL WEATHER ADMINISTRATION · 中央氣象署 (CWA)',
+      HK: 'HONG KONG OBSERVATORY · 香港天文台 (HKO)',
+      SG: 'METEOROLOGICAL SERVICE SINGAPORE (MSS · NEA)',
+      MY: 'MALAYSIAN METEOROLOGICAL DEPARTMENT (MetMalaysia)',
+      VN: 'NATIONAL CENTER FOR HYDRO-METEOROLOGICAL FORECASTING (NCHMF)',
+      ID: 'BMKG · BADAN METEOROLOGI, KLIMATOLOGI, DAN GEOFISIKA',
+      PH: 'PAGASA · PHILIPPINE ATMOSPHERIC ADMINISTRATION',
+      IN: 'INDIA METEOROLOGICAL DEPARTMENT (IMD)',
+      NZ: 'METSERVICE NEW ZEALAND · TE RATONGA TIRORANGI',
+      DE: 'DEUTSCHER WETTERDIENST (DWD)',
+      FR: 'MÉTÉO-FRANCE · VIGILANCE MÉTÉOROLOGIQUE',
+      ES: 'AGENCIA ESTATAL DE METEOROLOGÍA (AEMET)',
+      IT: 'SERVIZIO METEOROLOGICO · ITALIAMETEO',
+      NO: 'NORWEGIAN METEOROLOGICAL INSTITUTE (MET NORWAY)',
+      SE: 'SMHI · SWEDISH METEOROLOGICAL INSTITUTE',
+      CH: 'METEOSWISS · FEDERAL OFFICE OF METEOROLOGY',
+      NL: 'KNMI · ROYAL NETHERLANDS METEOROLOGICAL INSTITUTE',
+      BR: 'INMET · INSTITUTO NACIONAL DE METEOROLOGIA',
+      RU: 'ROSHYDROMET · HYDROMETEOROLOGICAL CENTRE'
+    };
+
+    function resolveGovernmentWeatherAgency(countryCode = '', timezone = '') {
+      const code = (countryCode || '').toUpperCase();
+      if (GOV_WEATHER_AGENCIES[code]) return GOV_WEATHER_AGENCIES[code];
+      const tz = String(timezone || '');
+      if (tz === 'Asia/Bangkok' || tz === 'Asia/Phnom_Penh' || tz === 'Asia/Vientiane') return GOV_WEATHER_AGENCIES.TH;
+      if (tz === 'Asia/Tokyo') return GOV_WEATHER_AGENCIES.JP;
+      if (tz === 'Asia/Seoul') return GOV_WEATHER_AGENCIES.KR;
+      if (tz === 'Asia/Taipei') return GOV_WEATHER_AGENCIES.TW;
+      if (tz === 'Asia/Hong_Kong') return GOV_WEATHER_AGENCIES.HK;
+      if (tz === 'Asia/Singapore') return GOV_WEATHER_AGENCIES.SG;
+      if (tz === 'Asia/Manila') return GOV_WEATHER_AGENCIES.PH;
+      if (tz === 'Asia/Jakarta' || tz === 'Asia/Makassar') return GOV_WEATHER_AGENCIES.ID;
+      if (tz === 'Asia/Kolkata') return GOV_WEATHER_AGENCIES.IN;
+      if (tz.startsWith('Australia/')) return GOV_WEATHER_AGENCIES.AU;
+      if (tz === 'Europe/London') return GOV_WEATHER_AGENCIES.GB;
+      if (tz === 'Europe/Berlin') return GOV_WEATHER_AGENCIES.DE;
+      if (tz === 'Europe/Paris') return GOV_WEATHER_AGENCIES.FR;
+      if (tz.startsWith('Europe/')) return 'EUMETNET · METEOALARM REGIONAL WARNING SYSTEM';
+      if (tz === 'America/St_Johns' || tz === 'America/Halifax' || tz === 'America/Toronto' || tz === 'America/Winnipeg' || tz === 'America/Edmonton' || tz === 'America/Vancouver') {
+        return GOV_WEATHER_AGENCIES.CA;
+      }
+      if (tz.startsWith('America/')) return GOV_WEATHER_AGENCIES.US;
+      return 'WMO SEVERE WEATHER INFORMATION CENTRE (SWIC)';
+    }
+
+    async function fetchOfficialNwsAlerts(lat, lon, countryCode = '') {
+      const isLikelyUS = countryCode === 'US' || (lat >= 17.5 && lat <= 71.5 && lon >= -179.9 && lon <= -64.5);
+      if (!isLikelyUS) return [];
+      try {
+        const res = await fetch(`https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lon.toFixed(4)}`, {
+          headers: { 'Accept': 'application/geo+json' }
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        const features = Array.isArray(data.features) ? data.features : [];
+        return features.slice(0, 4).map(f => {
+          const p = f.properties || {};
+          const rawSev = String(p.severity || 'Moderate').toUpperCase();
+          const level = rawSev === 'EXTREME' ? 'EXTREME' : rawSev === 'SEVERE' ? 'SEVERE' : rawSev === 'MODERATE' ? 'MODERATE' : 'ADVISORY';
+          const firstPara = String(p.description || p.headline || 'Official National Weather Service alert in effect for this area.')
+            .replace(/\n{2,}/g, ' · ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          return {
+            agency: p.senderName ? `NATIONAL WEATHER SERVICE · ${p.senderName.toUpperCase()}` : GOV_WEATHER_AGENCIES.US,
+            level,
+            headline: p.event || 'Severe Weather Alert',
+            sourceTag: 'Live NWS CAP Feed',
+            summary: p.headline || (firstPara.length > 180 ? firstPara.slice(0, 177) + '...' : firstPara),
+            description: firstPara.length > 360 ? firstPara.slice(0, 357) + '...' : firstPara,
+            instruction: p.instruction ? String(p.instruction).replace(/\s+/g, ' ').trim() : 'Monitor local National Weather Service broadcasts and follow regional emergency management guidance.',
+            effectiveWindow: p.expires ? `Expires ${new Date(p.expires).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'Active Regional Alert'
+          };
+        });
+      } catch (_) {
+        return [];
+      }
+    }
+
+    let govAlertExpanded = false;
+    let govAlertResizeTimer = null;
+
+    function toggleGovAlertDetails() {
+      const wrap = document.getElementById('govAlertDetailsWrap');
+      const chevron = document.getElementById('govAlertChevron');
+      if (!wrap) return;
+      govAlertExpanded = !govAlertExpanded;
+      wrap.classList.toggle('expanded', govAlertExpanded);
+      if (chevron) {
+        chevron.style.transform = govAlertExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+      requestAnimationFrame(() => resizeWetGlassCards());
+      clearTimeout(govAlertResizeTimer);
+      govAlertResizeTimer = setTimeout(() => resizeWetGlassCards(), 480);
+    }
+
+    function buildRegionalGovernmentAlerts(d) {
+      if (!d) return [];
+      const agency = resolveGovernmentWeatherAgency(d.countryCode, d.timezone);
+      const isThai = d.countryCode === 'TH' || d.timezone === 'Asia/Bangkok';
+      const areaLabel = [d.city, d.region].filter(Boolean).join(', ') || d.city || 'Selected Region';
+      const unitSym = useCelsius ? '°C' : '°F';
+      const spdUnit = useCelsius ? 'km/h' : 'mph';
+      const curTemp = fmtTemp(d.tempF);
+      const feelsTemp = fmtTemp(d.feelsLikeF);
+      const lowTemp = fmtTemp(d.lowF);
+      const highTemp = fmtTemp(d.highF);
+      const windSpd = fmtSpeed(d.windSpeedMph);
+      const gustSpd = fmtSpeed(d.windGustsMph);
+
+      const alerts = [];
+      if (Array.isArray(d.nwsAlerts) && d.nwsAlerts.length > 0) {
+        alerts.push(...d.nwsAlerts);
+      }
+
+      const codes12h = Array.isArray(d.upcomingCodes12h) ? d.upcomingCodes12h : [d.weatherCode];
+      const hasThunder = [95, 96, 97, 99].includes(d.weatherCode) || codes12h.some(c => c >= 95);
+      const hasHeavyRain = [65, 67, 82].includes(d.weatherCode) || codes12h.some(c => [65, 67, 82].includes(c));
+      const hasSnowOrIce = [56, 57, 66, 67, 71, 73, 75, 77, 85, 86].includes(d.weatherCode) || codes12h.some(c => [56, 57, 66, 67, 71, 73, 75, 77, 85, 86].includes(c));
+      const hasLightModRain = [51, 53, 55, 61, 63, 80, 81].includes(d.weatherCode) || codes12h.some(c => [61, 63, 80, 81].includes(c));
+      const hasFog = [45, 48].includes(d.weatherCode);
+
+      // 1. Thunderstorm & Lightning Warning
+      if (hasThunder) {
+        alerts.push({
+          agency,
+          level: [96, 99].includes(d.weatherCode) ? 'EXTREME' : 'SEVERE',
+          headline: isThai
+            ? 'ประกาศเตือนพายุฝนฟ้าคะนองและลมกระโชกแรง (Thunderstorm Warning)'
+            : 'Severe Thunderstorm & Lightning Warning',
+          sourceTag: 'Official Regional Warning',
+          summary: isThai
+            ? `พื้นที่ ${areaLabel} มีกลุ่มเมฆพายุฝนฟ้าคะนองและลมกระโชกแรง (${gustSpd} ${spdUnit}) โปรดระวังอันตรายจากฟ้าผ่าและน้ำท่วมขังฉับพลัน`
+            : `Active convective thunderstorm cells detected across ${areaLabel} with gusts reaching ${gustSpd} ${spdUnit} and frequent cloud-to-ground lightning.`,
+          description: isThai
+            ? `กรมอุตุนิยมวิทยาแจ้งเตือนสภาพอากาศแปรปรวนในเขต ${areaLabel} อุณหภูมิปัจจุบัน ${curTemp}${unitSym} ความชื้นสัมพัทธ์ ${d.humidity}% มีโอกาสเกิดฝนฟ้าคะนองรุนแรงและลมกระโชกแรงในช่วง 6–12 ชั่วโมงข้างหน้า`
+            : `Regional meteorological telemetry indicates unstable atmospheric conditions across ${areaLabel} (${curTemp}${unitSym}, ${d.humidity}% RH) capable of producing intense downpours, sudden wind gusts up to ${gustSpd} ${spdUnit}, and lightning strikes.`,
+          instruction: isThai
+            ? 'หลีกเลี่ยงการอยู่ในที่โล่งแจ้ง ใต้ต้นไม้ใหญ่ หรือใกล้ป้ายโฆษณาที่ไม่แข็งแรง และระมัดระวังการสัญจรบนถนนที่ลื่น'
+            : 'Seek shelter indoors immediately when thunder is heard. Avoid open fields, tall isolated trees, and flooded low-lying roadways.',
+          effectiveWindow: 'Active Now · Next 12 Hours'
+        });
+      }
+
+      // 2. Heavy Rainfall & Flash Flood Warning
+      if (hasHeavyRain && !hasThunder) {
+        alerts.push({
+          agency,
+          level: 'SEVERE',
+          headline: isThai
+            ? 'ประกาศเตือนฝนตกหนักถึงหนักมากและน้ำท่วมฉับพลัน (Heavy Rain Warning)'
+            : 'Heavy Rainfall & Urban Flood Warning',
+          sourceTag: 'Official Regional Warning',
+          summary: isThai
+            ? `ตรวจพบกลุ่มฝนตกหนักในเขต ${areaLabel} (โอกาสเกิดฝน ${d.maxPop24h || 85}%) ขอให้ระวังน้ำท่วมขังและทัศนวิสัยการมองเห็นลดลง`
+            : `Heavy precipitation bands moving across ${areaLabel} with ${d.maxPop24h || 85}% precipitation probability and reduced roadway visibility.`,
+          description: isThai
+            ? `ร่องมรสุมและมวลอากาศชื้นปกคลุมพื้นที่ ${areaLabel} ส่งผลให้มีฝนตกหนักต่อเนื่อง ความชื้น ${d.humidity}% ลมกระโชก ${gustSpd} ${spdUnit}`
+            : `Persistent moisture convergence over ${areaLabel} is generating heavy rainfall rates with ${d.humidity}% humidity and gusts up to ${gustSpd} ${spdUnit}. Localized ponding in low-lying drainage zones is possible.`,
+          instruction: isThai
+            ? 'เพิ่มความระมัดระวังในการขับขี่และหลีกเลี่ยงเส้นทางที่มีน้ำท่วมขัง'
+            : 'Allow extra travel time, reduce driving speed on wet pavement, and avoid underpasses prone to rapid water accumulation.',
+          effectiveWindow: 'Active Now · Next 12–24 Hours'
+        });
+      }
+
+      // 3. Winter Storm / Snowfall & Freezing Precipitation Warning
+      if (hasSnowOrIce) {
+        const isHeavySnow = [75, 86, 67].includes(d.weatherCode);
+        alerts.push({
+          agency,
+          level: isHeavySnow ? 'SEVERE' : 'MODERATE',
+          headline: isHeavySnow
+            ? 'Winter Storm & Heavy Snowfall Warning'
+            : 'Snowfall & Wintry Precipitation Advisory',
+          sourceTag: 'Official Regional Warning',
+          summary: `Wintry precipitation and snow showers affecting ${areaLabel} at ${curTemp}${unitSym} (Feels like ${feelsTemp}${unitSym}). Slippery surfaces expected.`,
+          description: `Sub-freezing boundary layer temperatures (${curTemp}${unitSym}, overnight low ${lowTemp}${unitSym}) combined with passing wintry bands across ${areaLabel} will produce snow accumulation and localized ice on untreated bridges and roads.`,
+          instruction: 'Use winter tires or chains where required, maintain safe following distances, and dress in insulated windproof layers.',
+          effectiveWindow: 'Active Now · Next 12–24 Hours'
+        });
+      }
+
+      // 4. Sub-Zero / Frost & Freeze Advisory (e.g., 0°C / <= 34°F like Newfoundland & Labrador)
+      if (d.tempF <= 34 || d.lowF <= 32) {
+        alerts.push({
+          agency,
+          level: (d.tempF <= 20 || d.lowF <= 18) ? 'SEVERE' : 'MODERATE',
+          headline: (d.tempF <= 20 || d.lowF <= 18)
+            ? 'Hard Freeze & Wind Chill Warning'
+            : 'Frost & Sub-Zero Freeze Advisory',
+          sourceTag: 'Official Regional Advisory',
+          summary: `Sub-zero / freezing temperatures across ${areaLabel} (Current: ${curTemp}${unitSym} · Low: ${lowTemp}${unitSym} · Wind chill: ${feelsTemp}${unitSym}).`,
+          description: `Cold air mass settled over ${areaLabel} is maintaining temperatures near or below freezing (${curTemp}${unitSym}, overnight low ${lowTemp}${unitSym}) with winds at ${windSpd} ${spdUnit} (gusts to ${gustSpd} ${spdUnit}). Black ice may form on exposed roadways and bridges.`,
+          instruction: 'Exercise caution on potentially icy walkways and roads, protect exposed water pipes, and limit prolonged outdoor exposure.',
+          effectiveWindow: 'Active Now · Overnight & Early Morning'
+        });
+      }
+
+      // 5. Extreme Heat / Tropical Heat Index Advisory
+      if (d.tempF >= 93 || d.feelsLikeF >= 98 || d.highF >= 95) {
+        const isExtremeHeat = d.tempF >= 102 || d.feelsLikeF >= 106;
+        alerts.push({
+          agency,
+          level: isExtremeHeat ? 'SEVERE' : 'MODERATE',
+          headline: isThai
+            ? 'ประกาศเตือนสภาพอากาศร้อนจัดและดัชนีความร้อนสูง (Heat Index Advisory)'
+            : (isExtremeHeat ? 'Excessive Heat Warning' : 'Heat & High Humidity Advisory'),
+          sourceTag: 'Official Regional Advisory',
+          summary: isThai
+            ? `พื้นที่ ${areaLabel} มีอุณหภูมิสูง ${curTemp}${unitSym} (ความรู้สึกร้อนเหมือน ${feelsTemp}${unitSym} · สูงสุด ${highTemp}${unitSym}) โปรดระวังโรคลมแดด (Heatstroke)`
+            : `Elevated thermal index across ${areaLabel} with apparent temperature reaching ${feelsTemp}${unitSym} (High: ${highTemp}${unitSym}, Humidity: ${d.humidity}%).`,
+          description: isThai
+            ? `กรมอุตุนิยมวิทยาแจ้งเตือนค่าดัชนีความร้อน (Heat Index) ในเขต ${areaLabel} อยู่ในเกณฑ์เฝ้าระวัง (${feelsTemp}${unitSym}) ร่วมกับความชื้นสัมพัทธ์ ${d.humidity}%`
+            : `High solar insolation and ${d.humidity}% relative humidity across ${areaLabel} are pushing the apparent heat index to ${feelsTemp}${unitSym}. Prolonged outdoor exertion may lead to heat exhaustion.`,
+          instruction: isThai
+            ? 'ดื่มน้ำสะอาดบ่อยๆ สวมเสื้อผ้าระบายอากาศได้ดี และลดกิจกรรมกลางแจ้งในช่วงเที่ยงถึงบ่าย'
+            : 'Stay hydrated, take frequent cooling breaks in shaded or air-conditioned spaces, and check on vulnerable individuals.',
+          effectiveWindow: 'Active Today · Peak Daytime Hours'
+        });
+      }
+
+      // 6. Strong Wind / Gale Advisory
+      if (d.windSpeedMph >= 20 || d.windGustsMph >= 30) {
+        alerts.push({
+          agency,
+          level: d.windGustsMph >= 45 ? 'SEVERE' : 'MODERATE',
+          headline: d.windGustsMph >= 45 ? 'High Wind & Gale Warning' : 'Strong Wind Gust Advisory',
+          sourceTag: 'Official Regional Advisory',
+          summary: `Sustained winds of ${windSpd} ${spdUnit} with gusts up to ${gustSpd} ${spdUnit} recorded across ${areaLabel}.`,
+          description: `Tightened pressure gradient (${(d.pressureHpa * 0.02953).toFixed(2)} inHg / ${Math.round(d.pressureHpa)} hPa) across ${areaLabel} is producing gusty surface winds up to ${gustSpd} ${spdUnit}.`,
+          instruction: 'Secure loose outdoor objects, use caution when driving high-profile vehicles, and stay clear of swaying tree limbs.',
+          effectiveWindow: 'Active Now · Next 12 Hours'
+        });
+      }
+
+      // 7. Dense Fog / Low Visibility Advisory
+      if (hasFog || d.visMiles <= 3) {
+        const visStr = useCelsius ? `${Math.round(d.visMiles * 1.609)} km` : `${d.visMiles} mi`;
+        alerts.push({
+          agency,
+          level: d.visMiles <= 1 ? 'SEVERE' : 'MODERATE',
+          headline: isThai
+            ? 'ประกาศเตือนหมอกหนาและทัศนวิสัยต่ำ (Dense Fog Advisory)'
+            : 'Dense Fog & Low Visibility Advisory',
+          sourceTag: 'Official Regional Advisory',
+          summary: `Visibility reduced to ${visStr} across ${areaLabel} (${d.humidity}% humidity). Use low-beam headlights when driving.`,
+          description: `Near-saturated surface air (${d.humidity}% RH, dew point ${fmtTemp(d.dewPointF)}${unitSym}) is causing localized fog banks and reduced horizontal visibility across ${areaLabel}.`,
+          instruction: 'Reduce driving speed, use low-beam headlights or fog lamps, and increase following distance.',
+          effectiveWindow: 'Active Now'
+        });
+      }
+
+      // 8. Air Quality Health Advisory (AQI / PM2.5)
+      if (d.usAqi >= 101) {
+        alerts.push({
+          agency,
+          level: d.usAqi >= 151 ? 'SEVERE' : 'MODERATE',
+          headline: isThai
+            ? `ประกาศแจ้งเตือนคุณภาพอากาศและฝุ่นละออง (US AQI ${d.usAqi})`
+            : `Air Quality & Particulate Health Advisory (AQI ${d.usAqi})`,
+          sourceTag: 'Official Environmental Alert',
+          summary: isThai
+            ? `ดัชนีคุณภาพอากาศในเขต ${areaLabel} อยู่ที่ US AQI ${d.usAqi} กลุ่มเสี่ยงควรลดเวลาทำกิจกรรมกลางแจ้ง`
+            : `Elevated particulate matter detected in ${areaLabel} (US AQI ${d.usAqi}). Sensitive groups should limit prolonged outdoor exertion.`,
+          description: `Real-time atmospheric air quality monitoring for ${areaLabel} reports a US AQI of ${d.usAqi}. Stagnant boundary layer dispersion may keep particulate levels elevated.`,
+          instruction: isThai
+            ? 'สวมหน้ากากป้องกันฝุ่น PM2.5 เมื่อออกนอกอาคาร และหลีกเลี่ยงการออกกำลังกายกลางแจ้งเป็นเวลานาน'
+            : 'Sensitive individuals should reduce intense outdoor activities and consider wearing a high-filtration mask outdoors.',
+          effectiveWindow: 'Active Today · Live Air Quality Feed'
+        });
+      }
+
+      // 9. Active Rain / Storm Watch (only when actively raining or high rain probability >= 70%)
+      if (!hasThunder && !hasHeavyRain && (hasLightModRain || (d.maxPop24h && d.maxPop24h >= 70))) {
+        alerts.push({
+          agency,
+          level: 'ADVISORY',
+          headline: isThai
+            ? 'พยากรณ์แจ้งเตือนกลุ่มฝนและอากาศชื้นในพื้นที่ (Regional Rain Advisory)'
+            : 'Regional Rain & Wet Pavement Advisory',
+          sourceTag: 'Official Regional Advisory',
+          summary: isThai
+            ? `พื้นที่ ${areaLabel} มีฝนฟ้าคะนองกระจาย/ฝนปรอย (${d.condition}) โอกาสเกิดฝน ${d.maxPop24h || 65}% อุณหภูมิ ${curTemp}${unitSym}`
+            : `Passing rain showers (${d.condition}) across ${areaLabel} with ${d.maxPop24h || 65}% precipitation probability and ${d.humidity}% humidity.`,
+          description: isThai
+            ? `กรมอุตุนิยมวิทยารายงานสภาพอากาศในเขต ${areaLabel} มีเมฆมากและมีฝนตกในพื้นที่ ความชื้นสัมพัทธ์ ${d.humidity}% ลมความเร็ว ${windSpd} ${spdUnit}`
+            : `Regional radar and telemetry indicate intermittent rain showers moving through ${areaLabel} (${curTemp}${unitSym}, dew point ${fmtTemp(d.dewPointF)}${unitSym}). Wet road surfaces expected.`,
+          instruction: isThai
+            ? 'พกร่มหรือเสื้อกันฝนเมื่อเดินทาง และระมัดระวังถนนลื่น'
+            : 'Carry rain gear and allow extra braking distance on wet roadways.',
+          effectiveWindow: 'Active Now · Next 24 Hours'
+        });
+      }
+
+      return alerts;
+    }
+
+    function renderGovernmentWeatherAlerts(d) {
+      const section = document.getElementById('govWeatherAlertSection');
+      if (!section) return;
+      const alerts = buildRegionalGovernmentAlerts(d);
+      if (!alerts || alerts.length === 0) {
+        govAlertExpanded = false;
+        const wrap = document.getElementById('govAlertDetailsWrap');
+        const chevron = document.getElementById('govAlertChevron');
+        if (wrap) wrap.classList.remove('expanded');
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
+        section.classList.remove('gov-alert-visible');
+        section.classList.add('gov-alert-hidden');
+        requestAnimationFrame(() => resizeWetGlassCards());
+        clearTimeout(govAlertResizeTimer);
+        govAlertResizeTimer = setTimeout(() => resizeWetGlassCards(), 500);
+        return;
+      }
+
+      const wasHidden = section.classList.contains('gov-alert-hidden');
+      const primary = alerts[0];
+
+      const stylesByLevel = {
+        EXTREME: {
+          iconBg: 'bg-rose-500/25 border-rose-400/50 text-rose-300',
+          agencyText: 'text-white/80',
+          pill: 'bg-rose-500/30 text-rose-100 border-rose-400/50',
+          icon: 'shield-alert'
+        },
+        SEVERE: {
+          iconBg: 'bg-orange-500/25 border-orange-400/45 text-orange-300',
+          agencyText: 'text-white/80',
+          pill: 'bg-orange-500/30 text-orange-100 border-orange-400/45',
+          icon: 'alert-triangle'
+        },
+        MODERATE: {
+          iconBg: 'bg-amber-500/25 border-amber-400/45 text-amber-300',
+          agencyText: 'text-white/80',
+          pill: 'bg-amber-500/25 text-amber-100 border-amber-400/45',
+          icon: 'alert-triangle'
+        },
+        ADVISORY: {
+          iconBg: 'bg-amber-400/20 border-amber-300/40 text-amber-200',
+          agencyText: 'text-white/80',
+          pill: 'bg-amber-400/20 text-amber-100 border-amber-300/40',
+          icon: 'alert-circle'
+        }
+      };
+
+      const st = stylesByLevel[primary.level] || stylesByLevel.ADVISORY;
+      section.className = 'gov-alert-visible ios-glass rounded-3xl p-4 sm:p-5 mb-5 cursor-pointer select-none';
+      if (!wasHidden) {
+        triggerMorphAnimation(['govAlertHeadline', 'govAlertSummary']);
+      }
+
+      const iconBadge = document.getElementById('govAlertIconBadge');
+      if (iconBadge) {
+        iconBadge.className = `inline-flex items-center justify-center w-6 h-6 rounded-full border flex-shrink-0 ${st.iconBg}`;
+        iconBadge.innerHTML = `<i data-lucide="${st.icon}" class="w-3.5 h-3.5"></i>`;
+      }
+
+      const agencyEl = document.getElementById('govAlertAgency');
+      if (agencyEl) {
+        agencyEl.className = `text-[11px] font-bold uppercase tracking-wider block truncate ${st.agencyText}`;
+        agencyEl.textContent = primary.agency;
+      }
+
+      const moreBadge = document.getElementById('govAlertMoreBadge');
+      if (moreBadge) {
+        if (alerts.length > 1) {
+          moreBadge.textContent = `+${alerts.length - 1} More`;
+          moreBadge.classList.remove('hidden');
+        } else {
+          moreBadge.classList.add('hidden');
+        }
+      }
+
+      const sevBadge = document.getElementById('govAlertSeverityBadge');
+      if (sevBadge) {
+        sevBadge.className = `text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${st.pill}`;
+        sevBadge.textContent = primary.level;
+      }
+
+      const headlineEl = document.getElementById('govAlertHeadline');
+      if (headlineEl) headlineEl.textContent = primary.headline;
+
+      const sourceTagEl = document.getElementById('govAlertSourceTag');
+      if (sourceTagEl) sourceTagEl.textContent = primary.sourceTag;
+
+      const summaryEl = document.getElementById('govAlertSummary');
+      if (summaryEl) summaryEl.textContent = primary.summary;
+
+      const detailsPanel = document.getElementById('govAlertDetailsPanel');
+      if (detailsPanel) {
+        detailsPanel.innerHTML = alerts.map((item, idx) => {
+          const itemSt = stylesByLevel[item.level] || stylesByLevel.ADVISORY;
+          return `
+            <div class="${idx > 0 ? 'pt-3 border-t border-white/10' : ''} space-y-1.5">
+              <div class="flex flex-wrap items-center justify-between gap-1">
+                <div class="flex items-center space-x-2">
+                  <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${itemSt.pill}">${item.level}</span>
+                  <span class="font-semibold text-white/95">${item.headline}</span>
+                </div>
+                <span class="text-[10px] text-white/55 font-mono">${item.effectiveWindow}</span>
+              </div>
+              <p class="text-white/80 leading-relaxed">${item.description}</p>
+              <div class="flex items-start space-x-2 bg-white/5 rounded-2xl p-2.5 border border-white/10 text-white/85">
+                <i data-lucide="info" class="w-3.5 h-3.5 text-sky-300 mt-0.5 flex-shrink-0"></i>
+                <span><strong class="text-white">Safety Guidance:</strong> ${item.instruction}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      lucide.createIcons();
+      requestAnimationFrame(() => resizeWetGlassCards());
+      clearTimeout(govAlertResizeTimer);
+      govAlertResizeTimer = setTimeout(() => resizeWetGlassCards(), 500);
+    }
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+        if (!res.ok) throw new Error('Reverse geocode error');
+        const data = await res.json();
+        const addr = data.address || {};
+        const name = addr.city || addr.town || addr.village || addr.county || addr.state || `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+        const region = addr.state || addr.country || '';
+        const countryCode = (addr.country_code || '').toUpperCase();
+        return { name, region, countryCode };
+      } catch (e) {
+        return { name: `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`, region: 'Selected Coordinates', countryCode: '' };
+      }
+    }
+
+    let weatherRequestId = 0;
+    let isHeroTransitioning = false;
+    let heroBlurOutStartTime = 0;
+    let heroTransitionTimer = null;
+    let pendingFallbackHeroData = null;
+    const HERO_BLUR_OUT_DURATION_MS = 250;
+
+    function startHeroLocationTransition() {
+      const heroEl = document.getElementById('heroWeatherSection');
+      if (!heroEl) return;
+      if (heroTransitionTimer) {
+        clearTimeout(heroTransitionTimer);
+        heroTransitionTimer = null;
+      }
+      heroEl.classList.remove('weather-morph-anim');
+      if (!isHeroTransitioning) {
+        isHeroTransitioning = true;
+        heroBlurOutStartTime = performance.now();
+        heroEl.classList.add('hero-blur-out');
+      }
+    }
+
+    function writeHeroWeatherDom(heroData) {
+      if (!heroData) return;
+      const titleEl = document.getElementById('cityTitle');
+      const tempEl = document.getElementById('currentTemp');
+      const condEl = document.getElementById('weatherCondition');
+      const hlEl = document.getElementById('highLowSpan');
+      if (titleEl && heroData.city !== undefined) titleEl.textContent = heroData.city;
+      if (tempEl && heroData.tempF !== undefined) tempEl.textContent = fmtTemp(heroData.tempF);
+      if (condEl && heroData.condition !== undefined) condEl.textContent = heroData.condition;
+      if (hlEl && heroData.highF !== undefined && heroData.lowF !== undefined) {
+        hlEl.innerHTML = `H: ${fmtTemp(heroData.highF)}° &nbsp;L: ${fmtTemp(heroData.lowF)}°`;
+      }
+    }
+
+    function applyHeroWeatherWithBlurTransition(heroData) {
+      const heroEl = document.getElementById('heroWeatherSection');
+      if (!heroEl || !isHeroTransitioning) {
+        writeHeroWeatherDom(heroData);
+        return;
+      }
+      if (heroTransitionTimer) {
+        clearTimeout(heroTransitionTimer);
+        heroTransitionTimer = null;
+      }
+      const elapsed = performance.now() - heroBlurOutStartTime;
+      const waitMs = Math.max(0, HERO_BLUR_OUT_DURATION_MS - elapsed);
+      heroTransitionTimer = setTimeout(() => {
+        heroTransitionTimer = null;
+        writeHeroWeatherDom(latestWeatherData || heroData);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            heroEl.classList.remove('hero-blur-out');
+            isHeroTransitioning = false;
+          });
+        });
+      }, waitMs);
+    }
+
+    async function fetchLiveWeatherByCoords(lat, lon, customCityName = null, panMap = true, geoMeta = null, skipHeroBlur = false) {
+      const requestId = ++weatherRequestId;
+      if (!skipHeroBlur) {
+        startHeroLocationTransition();
+      }
+
+      try {
+        let cityName = customCityName;
+        let regionName = (geoMeta && geoMeta.region) || '';
+        let countryCode = (geoMeta && geoMeta.countryCode) || '';
+
+        if (!cityName || !countryCode) {
+          const geo = await reverseGeocode(lat, lon);
+          if (requestId !== weatherRequestId) return;
+          if (!cityName) cityName = geo.name;
+          if (!regionName) regionName = geo.region;
+          if (!countryCode) countryCode = geo.countryCode;
+        }
+
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,weather_code,visibility,uv_index,dew_point_2m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_probability_max&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto&forecast_days=10`;
+        const aqiUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5`;
+
+        const [weatherRes, aqiRes, nwsAlerts] = await Promise.all([
+          fetch(weatherUrl),
+          fetch(aqiUrl).catch(() => null),
+          fetchOfficialNwsAlerts(lat, lon, countryCode)
+        ]);
+        if (requestId !== weatherRequestId) return;
+
+        if (!weatherRes.ok) throw new Error('Weather API failed');
+        const wData = await weatherRes.json();
+        const aqiData = (aqiRes && aqiRes.ok) ? await aqiRes.json() : null;
+        if (requestId !== weatherRequestId) return;
+
+        activeLocation = { name: cityName, region: regionName, countryCode, lat, lon };
+        processAndRenderLiveWeather(wData, aqiData, cityName, lat, lon, panMap, {
+          region: regionName,
+          countryCode,
+          nwsAlerts
+        });
+      } catch (err) {
+        if (requestId !== weatherRequestId) return;
+        console.warn('Live weather fallback:', err);
+        if (isHeroTransitioning) {
+          applyHeroWeatherWithBlurTransition(pendingFallbackHeroData);
+        }
+      }
+    }
+
+    function processAndRenderLiveWeather(wData, aqiData, cityName, lat, lon, panMap, extraMeta = {}) {
+      const cur = wData.current;
+      const daily = wData.daily;
+      const hourly = wData.hourly;
+
+      const isDay = cur.is_day;
+      const wmo = wmoToInfo(cur.weather_code, isDay);
+
+      // Find current hour index in hourly array using the city's local time from Open-Meteo
+      let curHourIdx = 0;
+      if (hourly && hourly.time) {
+        const curHourPrefix = (cur && cur.time) ? cur.time.slice(0, 13) : null;
+        const exactIdx = curHourPrefix ? hourly.time.findIndex(tStr => tStr.startsWith(curHourPrefix)) : -1;
+        if (exactIdx !== -1) {
+          curHourIdx = exactIdx;
+        } else {
+          const nowTs = Date.now();
+          let bestDiff = Infinity;
+          hourly.time.forEach((tStr, i) => {
+            const diff = Math.abs(new Date(tStr).getTime() - nowTs);
+            if (diff < bestDiff) {
+              bestDiff = diff;
+              curHourIdx = i;
+            }
+          });
+        }
+      }
+
+      const currentUv = (hourly && hourly.uv_index && hourly.uv_index[curHourIdx] != null)
+        ? Math.round(hourly.uv_index[curHourIdx])
+        : Math.round((daily.uv_index_max && daily.uv_index_max[0]) || 0);
+
+      const dewPointF = (hourly && hourly.dew_point_2m && hourly.dew_point_2m[curHourIdx] != null)
+        ? Math.round(hourly.dew_point_2m[curHourIdx])
+        : Math.round(cur.temperature_2m - ((100 - cur.relative_humidity_2m) / 5));
+
+      const visMeters = (hourly && hourly.visibility && hourly.visibility[curHourIdx] != null)
+        ? hourly.visibility[curHourIdx]
+        : 16093;
+      const visMiles = Math.max(1, Math.min(10, Math.round(visMeters / 1609.34)));
+
+      const usAqi = (aqiData && aqiData.current && aqiData.current.us_aqi != null)
+        ? Math.round(aqiData.current.us_aqi)
+        : 24;
+
+      // Build Next 24-Hour forecast items (Now + next 24 hours)
+      const hourlyItems = [];
+      const upcomingCodes12h = [];
+      for (let i = curHourIdx; i < Math.min(curHourIdx + 25, hourly.time.length); i++) {
+        const dt = new Date(hourly.time[i]);
+        const hrLabel = (i === curHourIdx) ? 'Now' : dt.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+        const hInfo = wmoToInfo(hourly.weather_code[i], hourly.is_day ? hourly.is_day[i] : isDay);
+        if (i < curHourIdx + 12) upcomingCodes12h.push(hourly.weather_code[i]);
+        hourlyItems.push({
+          time: hrLabel,
+          icon: hInfo.icon,
+          tempF: hourly.temperature_2m[i]
+        });
+      }
+
+      // Build 10-day forecast items
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      tenDayData = daily.time.slice(0, 10).map((dStr, idx) => {
+        const dt = new Date(dStr + 'T12:00:00');
+        const dInfo = wmoToInfo(daily.weather_code[idx], 1);
+        const popVal = daily.precipitation_probability_max ? daily.precipitation_probability_max[idx] : 0;
+        return {
+          day: idx === 0 ? 'Today' : dayNames[dt.getDay()],
+          icon: dInfo.icon,
+          minF: daily.temperature_2m_min[idx],
+          maxF: daily.temperature_2m_max[idx],
+          pop: popVal >= 25 ? `${popVal}%` : null,
+          isToday: idx === 0
+        };
+      });
+
+      // Format Sunrise / Sunset
+      let sunsetStr = '6:48 PM';
+      let sunriseStr = 'Sunrise: 6:54 AM';
+      let sunriseOnlyStr = '6:54 AM';
+      let sunriseTodayOnlyStr = '6:54 AM';
+      if (daily.sunset && daily.sunset[0]) {
+        sunsetStr = new Date(daily.sunset[0]).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      if (daily.sunrise && daily.sunrise[0]) {
+        sunriseTodayOnlyStr = new Date(daily.sunrise[0]).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      }
+      if (daily.sunrise && daily.sunrise[1]) {
+        const sr = new Date(daily.sunrise[1]).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        sunriseOnlyStr = sr;
+        sunriseStr = `Sunrise: ${sr} tomorrow`;
+      }
+
+      latestWeatherData = {
+        city: cityName,
+        region: extraMeta.region || '',
+        countryCode: extraMeta.countryCode || '',
+        nwsAlerts: extraMeta.nwsAlerts || [],
+        lat,
+        lon,
+        timezone: wData.timezone || '',
+        tempF: cur.temperature_2m,
+        feelsLikeF: cur.apparent_temperature,
+        highF: daily.temperature_2m_max[0],
+        lowF: daily.temperature_2m_min[0],
+        weatherCode: cur.weather_code,
+        upcomingCodes12h,
+        maxPop24h: (daily.precipitation_probability_max && daily.precipitation_probability_max[0]) || 0,
+        maxUvToday: Math.round((daily.uv_index_max && daily.uv_index_max[0]) || currentUv),
+        skyCondition: classifySkyWeather(cur.weather_code, cur.precipitation, cur.interval),
+        condition: wmo.label,
+        themeKey: wmo.theme,
+        uv: currentUv,
+        windSpeedMph: cur.wind_speed_10m,
+        windGustsMph: cur.wind_gusts_10m || cur.wind_speed_10m * 1.3,
+        windDir: cur.wind_direction_10m || 0,
+        humidity: Math.round(cur.relative_humidity_2m),
+        dewPointF,
+        visMiles,
+        pressureHpa: cur.surface_pressure || 1016,
+        sunsetStr,
+        sunriseStr,
+        sunriseOnlyStr,
+        sunriseTodayOnlyStr,
+        usAqi,
+        hourlyItems
+      };
+
+      // Sync 3D volumetric cloud theme with live WMO weather & local city time
+      applyVisualSkyTheme(wmo.theme, latestWeatherData.skyCondition, {
+        timezone: wData.timezone,
+        utcOffset: wData.utc_offset_seconds,
+        sunrise: daily.sunrise && daily.sunrise[0],
+        sunset: daily.sunset && daily.sunset[0]
+      });
+      renderLiveDomWidgets();
+
+      if (cartoMap) {
+        if (panMap) {
+          cartoMap.flyTo([lat, lon], Math.max(cartoMap.getZoom(), 7), { duration: 1.2 });
+        }
+        updateMapMarker(lat, lon, cityName, latestWeatherData.tempF, latestWeatherData.condition);
+      }
+    }
+
+    function updatePresetButtonHighlight() {
+      let activeBtnEl = null;
+      ['bangkok', 'tokyo', 'california'].forEach(key => {
+        const btn = document.getElementById(`btn-${key}`);
+        if (!btn) return;
+        if (key === activePresetKey) {
+          btn.className = 'seg-pill-btn px-3 py-1 rounded-full text-white font-semibold';
+          activeBtnEl = btn;
+        } else {
+          btn.className = 'seg-pill-btn px-3 py-1 rounded-full text-white/70 hover:text-white font-normal';
+        }
+      });
+      positionSegmentedSlider('cityPresetSlider', activeBtnEl);
+    }
+
+    function applyVisualSkyTheme(themeKey, weather = null, clock = null) {
+      currentMode = themeKey;
+      const theme = WEATHER_THEMES[themeKey];
+      const presetZone = SKY_TIMEZONES[activePresetKey] || SKY_TIMEZONES.bangkok;
+      skyWeather = weather || {
+        kind: themeKey === 'rainy' ? 'light_rain' : 'few_clouds',
+        rainAmount: themeKey === 'rainy' ? 0.45 : 0,
+        lightning: Boolean(theme.hasLightning)
+      };
+      skyClock = {
+        timezone: (clock && clock.timezone) || presetZone.timezone,
+        utcOffset: (clock && clock.utcOffset != null) ? clock.utcOffset : presetZone.utcOffset,
+        sunrise: isoDecimalHour(clock && clock.sunrise, 6),
+        sunset: isoDecimalHour(clock && clock.sunset, 18)
+      };
+      if (!skyWeather.lightning) pendingLightningStrikes = [];
+      if (!skyWeather.snowAmount) {
+        snowRimPuffs.length = 0;
+        renderState.snowAmount = 0;
+      }
+      if (!skyWeather.rainAmount) {
+        rainSplashes.length = 0;
+        rimGlints.length = 0;
+      }
+      refreshSkyClock();
+
+      const sky = document.getElementById('skyBackground');
+      if (sky) sky.style.background = theme.bgGradient;
+
+      // Sync authentic Apple Weather .webp cloud layers & mist veils (from sathon-weather-ios.html)
+      const vfxSuffix = skyWeather.rainAmount > 0.2 ? 'storm' : (targetSkyState.nightFactor > 0.55 ? 'night' : 'day');
+      const stratusImg = document.getElementById('vfxStratusImg');
+      const cumulusImg = document.getElementById('vfxCumulusImg');
+      const cirrusImg = document.getElementById('vfxCirrusImg');
+      if (stratusImg) stratusImg.src = `apple-weather-assets/vfx_stratus_000_${vfxSuffix}.webp`;
+      if (cumulusImg) cumulusImg.src = `apple-weather-assets/vfx_cumulus_000_${vfxSuffix}.webp`;
+      if (cirrusImg) cirrusImg.src = `apple-weather-assets/vfx_cirrus_000_${vfxSuffix}.webp`;
+
+      const mistA = document.getElementById('mistVeilA');
+      const mistB = document.getElementById('mistVeilB');
+      if (mistA && mistB) {
+        if (vfxSuffix === 'day') {
+          mistA.style.background = 'radial-gradient(ellipse at 50% 35%, rgba(255, 255, 255, 0.22) 0%, rgba(186, 230, 253, 0.10) 45%, transparent 72%)';
+          mistB.style.background = 'radial-gradient(ellipse at 55% 32%, rgba(224, 242, 254, 0.18) 0%, rgba(125, 211, 252, 0.08) 48%, transparent 72%)';
+        } else if (vfxSuffix === 'storm') {
+          mistA.style.background = 'radial-gradient(ellipse at 50% 35%, rgba(148, 163, 184, 0.22) 0%, rgba(71, 85, 105, 0.12) 45%, transparent 72%)';
+          mistB.style.background = 'radial-gradient(ellipse at 55% 32%, rgba(100, 116, 139, 0.18) 0%, rgba(51, 65, 85, 0.12) 48%, transparent 72%)';
+        } else {
+          mistA.style.background = 'radial-gradient(ellipse at 50% 35%, rgba(148, 163, 218, 0.16) 0%, rgba(99, 102, 241, 0.08) 45%, transparent 72%)';
+          mistB.style.background = 'radial-gradient(ellipse at 55% 32%, rgba(56, 189, 248, 0.12) 0%, rgba(168, 85, 247, 0.10) 48%, transparent 72%)';
+        }
+      }
+
+      updatePresetButtonHighlight();
+    }
+
+    function renderLiveDomWidgets() {
+      if (!latestWeatherData) return;
+      const d = latestWeatherData;
+
+      applyHeroWeatherWithBlurTransition({
+        city: d.city,
+        tempF: d.tempF,
+        condition: d.condition,
+        highF: d.highF,
+        lowF: d.lowF
+      });
+      document.getElementById('coordsSubtitle').textContent = `${Math.abs(d.lat).toFixed(2)}°${d.lat >= 0 ? 'N' : 'S'}, ${Math.abs(d.lon).toFixed(2)}°${d.lon >= 0 ? 'E' : 'W'} · CARTO Live Telemetry`;
+
+      // Local Time in Hourly Header
+      const localTimeEl = document.getElementById('localTimeSpan');
+      if (localTimeEl && d.timezone) {
+        try {
+          localTimeEl.textContent = new Date().toLocaleTimeString([], { timeZone: d.timezone, hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+          localTimeEl.textContent = '';
+        }
+      }
+
+      // Air Quality Widget
+      const aqiValEl = document.getElementById('aqiValue');
+      const aqiLvlEl = document.getElementById('aqiLevel');
+      const aqiDescEl = document.getElementById('aqiDescription');
+      const aqiBarEl = document.getElementById('aqiBar');
+      if (aqiValEl) aqiValEl.textContent = d.usAqi;
+      if (aqiBarEl) aqiBarEl.style.width = `${Math.min(100, Math.max(8, (d.usAqi / 200) * 100))}%`;
+      if (aqiLvlEl && aqiDescEl) {
+        if (d.usAqi <= 50) {
+          aqiLvlEl.textContent = 'Good';
+          aqiDescEl.textContent = `Air quality index is ${d.usAqi}, which is clean and ideal for outdoor activities.`;
+        } else if (d.usAqi <= 100) {
+          aqiLvlEl.textContent = 'Moderate';
+          aqiDescEl.textContent = `Air quality index is ${d.usAqi}. Unusually sensitive individuals should limit prolonged exertion.`;
+        } else {
+          aqiLvlEl.textContent = 'Elevated';
+          aqiDescEl.textContent = `Air quality index is ${d.usAqi}. Consider reducing prolonged outdoor exertion.`;
+        }
+      }
+
+      // UV Widget
+      document.getElementById('uvValue').textContent = d.uv;
+      const uvLevel = d.uv <= 2 ? 'Low' : d.uv <= 5 ? 'Moderate' : d.uv <= 7 ? 'High' : 'Very High';
+      document.getElementById('uvLevel').textContent = uvLevel;
+      document.getElementById('uvDot').style.left = `${Math.min(95, Math.max(4, (d.uv / 11) * 100))}%`;
+      document.getElementById('uvDescription').textContent = d.uv <= 2 ? 'No sun protection required.' : 'Use sun protection during peak daylight hours.';
+
+      // Wind Widget
+      const speedUnit = useCelsius ? 'km/h' : 'mph';
+      document.getElementById('windSpeed').textContent = fmtSpeed(d.windSpeedMph);
+      const compassStr = degToCompass(d.windDir);
+      document.getElementById('windGusts').textContent = `${compassStr} · Gusts to ${fmtSpeed(d.windGustsMph)} ${speedUnit}`;
+      document.getElementById('compassNeedle').style.transform = `rotate(${d.windDir}deg)`;
+
+      // Sun & Humidity & Feels Like & Visibility & Pressure
+      document.getElementById('sunEventTime').textContent = d.sunsetStr;
+      document.getElementById('sunriseInfo').textContent = d.sunriseStr;
+      updateSolarArcWidget();
+      document.getElementById('feelsLikeValue').textContent = `${fmtTemp(d.feelsLikeF)}°`;
+      document.getElementById('humidityValue').textContent = `${d.humidity}%`;
+      document.getElementById('dewPointText').textContent = `The dew point is ${fmtTemp(d.dewPointF)}° right now.`;
+      document.getElementById('visibilityValue').textContent = useCelsius ? `${Math.round(d.visMiles * 1.609)} km` : `${d.visMiles} mi`;
+
+      const pressEl = document.getElementById('pressureValue');
+      if (pressEl) {
+        pressEl.textContent = (d.pressureHpa * 0.02953).toFixed(2);
+      }
+
+      renderHourly(d.hourlyItems.map(item => ({
+        time: item.time,
+        icon: item.icon,
+        temp: fmtTemp(item.tempF)
+      })));
+
+      renderTenDay();
+      renderGovernmentWeatherAlerts(d);
+    }
+
+    function toggleTempUnit() {
+      useCelsius = !useCelsius;
+      const btn = document.getElementById('unitToggleBtn');
+      if (btn) btn.textContent = useCelsius ? '°C' : '°F';
+
+      triggerMorphAnimation(['currentTemp', 'highLowSpan', 'hourlyContainer', 'tenDayContainer']);
+
+      if (latestWeatherData) {
+        renderLiveDomWidgets();
+        updateMapMarker(latestWeatherData.lat, latestWeatherData.lon, latestWeatherData.city, latestWeatherData.tempF, latestWeatherData.condition);
+      } else {
+        setWeatherTheme(currentMode, false);
+      }
+    }
+
+    function useMyLocation() {
+      activePresetKey = null;
+      updatePresetButtonHighlight();
+      startHeroLocationTransition();
+      if (!navigator.geolocation) {
+        selectCityPreset('bangkok', true);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          fetchLiveWeatherByCoords(pos.coords.latitude, pos.coords.longitude, null, true);
+        },
+        () => {
+          selectCityPreset('bangkok', true);
+        },
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    }
+
+    // City Search Autocomplete with Open-Meteo Geocoding API
+    function setupCitySearch() {
+      const input = document.getElementById('citySearchInput');
+      const dropdown = document.getElementById('searchDropdown');
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (!input || !dropdown) return;
+
+      let debounceTimer = null;
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim();
+        if (clearBtn) clearBtn.classList.toggle('hidden', q.length === 0);
+
+        clearTimeout(debounceTimer);
+        if (q.length < 2) {
+          dropdown.classList.add('hidden');
+          return;
+        }
+
+        debounceTimer = setTimeout(async () => {
+          try {
+            const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const results = data.results || [];
+
+            if (results.length === 0) {
+              dropdown.innerHTML = `<div class="px-4 py-3 text-xs text-white/60">No matching cities found</div>`;
+              dropdown.classList.remove('hidden');
+              return;
+            }
+
+            dropdown.innerHTML = results.map((r, i) => `
+              <button type="button" data-idx="${i}" class="w-full text-left px-4 py-2.5 hover:bg-white/15 transition flex items-center justify-between border-b border-white/5 last:border-none">
+                <div>
+                  <div class="text-sm font-medium text-white">${r.name}</div>
+                  <div class="text-[11px] text-white/55">${[r.admin1, r.country].filter(Boolean).join(', ')}</div>
+                </div>
+                <span class="text-[10px] font-mono text-sky-300/80">${r.latitude.toFixed(2)}°, ${r.longitude.toFixed(2)}°</span>
+              </button>
+            `).join('');
+
+            dropdown.classList.remove('hidden');
+
+            dropdown.querySelectorAll('button[data-idx]').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const picked = results[Number(btn.getAttribute('data-idx'))];
+                input.value = `${picked.name}, ${picked.country || ''}`;
+                dropdown.classList.add('hidden');
+                activePresetKey = null;
+                updatePresetButtonHighlight();
+                fetchLiveWeatherByCoords(picked.latitude, picked.longitude, picked.name, true, {
+                  region: [picked.admin1, picked.country].filter(Boolean).join(', '),
+                  countryCode: (picked.country_code || '').toUpperCase()
+                });
+              });
+            });
+          } catch (e) {
+            console.warn('Search error:', e);
+          }
+        }, 240);
+      });
+
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          input.value = '';
+          clearBtn.classList.add('hidden');
+          dropdown.classList.add('hidden');
+        });
+      }
+
+      document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.classList.add('hidden');
+        }
+      });
+    }
+
+    function renderHourly(items) {
+      const container = document.getElementById('hourlyContainer');
+      container.innerHTML = items.map(item => `
+        <div class="flex flex-col items-center flex-shrink-0 space-y-3">
+          <span class="text-xs font-medium text-white/80">${item.time}</span>
+          <div class="h-6 flex items-center justify-center">
+            <i data-lucide="${item.icon}" class="w-5 h-5 text-amber-300 drop-shadow"></i>
+          </div>
+          <span class="text-base font-semibold tracking-tight">${item.temp}°</span>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function renderTenDay() {
+      const container = document.getElementById('tenDayContainer');
+      const items = tenDayData.map(d => ({
+        ...d,
+        min: fmtTemp(d.minF !== undefined ? d.minF : d.min),
+        max: fmtTemp(d.maxF !== undefined ? d.maxF : d.max)
+      }));
+
+      const mins = items.map(i => i.min);
+      const maxs = items.map(i => i.max);
+      const globalMin = Math.min(...mins) - 2;
+      const globalMax = Math.max(...maxs) + 2;
+      const totalSpan = Math.max(1, globalMax - globalMin);
+
+      container.innerHTML = items.map(item => {
+        const leftPercent = Math.max(0, Math.min(95, ((item.min - globalMin) / totalSpan) * 100));
+        const widthPercent = Math.max(6, Math.min(100 - leftPercent, ((item.max - item.min) / totalSpan) * 100));
+
+        return `
+          <div class="flex items-center justify-between py-2.5">
+            <span class="w-16 text-sm font-semibold text-white/90">${item.day}</span>
+            
+            <div class="w-12 flex items-center justify-center space-x-1">
+              <i data-lucide="${item.icon}" class="w-5 h-5 text-amber-300"></i>
+              ${item.pop ? `<span class="text-[10px] text-sky-300 font-bold leading-none">${item.pop}</span>` : ''}
+            </div>
+
+            <div class="flex items-center space-x-3 flex-1 max-w-xs ml-3">
+              <span class="text-xs text-white/60 w-7 text-right font-medium">${item.min}°</span>
+              
+              <div class="flex-1 h-1.5 rounded-full temp-range-track relative overflow-hidden">
+                <div class="absolute h-full rounded-full bg-gradient-to-r from-emerald-400 via-yellow-400 to-amber-500" 
+                     style="left: ${leftPercent}%; width: ${widthPercent}%;">
+                </div>
+                ${item.isToday ? `
+                  <div class="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-slate-900 shadow-sm"
+                       style="left: calc(${leftPercent + (widthPercent * 0.65)}% - 4px);">
+                  </div>
+                ` : ''}
+              </div>
+
+              <span class="text-xs text-white font-semibold w-7 text-left">${item.max}°</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function setWeatherTheme(themeKey, flyMap = true) {
+      applyVisualSkyTheme(themeKey);
+      const theme = WEATHER_THEMES[themeKey];
+      const presetLoc = activePresetKey ? PRESET_LOCATIONS[activePresetKey] : PRESET_LOCATIONS.bangkok;
+      activeLocation = { ...presetLoc };
+
+      pendingFallbackHeroData = {
+        city: presetLoc.name,
+        tempF: theme.temp,
+        condition: theme.condition,
+        highF: theme.high,
+        lowF: theme.low
+      };
+
+      // Update Hero Metrics with unit conversion only when not currently mid blur-fade-out
+      document.getElementById('coordsSubtitle').textContent = `${Math.abs(presetLoc.lat).toFixed(2)}°N, ${Math.abs(presetLoc.lon).toFixed(2)}°${presetLoc.lon >= 0 ? 'E' : 'W'} · ${presetLoc.name.toUpperCase()} PRESET`;
+      if (!isHeroTransitioning) {
+        writeHeroWeatherDom(pendingFallbackHeroData);
+      }
+
+      // Update Widgets
+      document.getElementById('uvValue').textContent = theme.uv;
+      document.getElementById('uvLevel').textContent = theme.uvText;
+      document.getElementById('uvDot').style.left = theme.uvPct;
+      document.getElementById('uvDescription').textContent = theme.uvDesc;
+      document.getElementById('windSpeed').textContent = fmtSpeed(theme.wind);
+      document.getElementById('windGusts').textContent = theme.windGusts;
+      document.getElementById('compassNeedle').style.transform = `rotate(${theme.windDir}deg)`;
+      document.getElementById('sunEventTime').textContent = theme.sunset;
+      document.getElementById('sunriseInfo').textContent = theme.sunriseInfo;
+      document.getElementById('feelsLikeValue').textContent = `${fmtTemp(theme.feelsLike)}°`;
+      document.getElementById('humidityValue').textContent = theme.humidity;
+      document.getElementById('dewPointText').textContent = theme.dewPoint;
+      document.getElementById('visibilityValue').textContent = theme.visibility;
+
+      // Update Hourly Scroll Row (Calculate Next 24 Hours dynamically)
+      const tz = (SKY_TIMEZONES[activePresetKey] || SKY_TIMEZONES.bangkok).timezone;
+      const nowDate = new Date();
+      const fallback24h = Array.from({ length: 25 }, (_, offset) => {
+        const slotDate = new Date(nowDate.getTime() + offset * 3600 * 1000);
+        const label = offset === 0 ? 'Now' : slotDate.toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', hour12: true });
+        const sample = theme.hourly[offset % theme.hourly.length];
+        const diurnalShift = Math.round(Math.sin(((offset - 4) / 24) * Math.PI * 2) * 4);
+        return {
+          time: label,
+          icon: sample.icon,
+          temp: fmtTemp(theme.temp + diurnalShift)
+        };
+      });
+      renderHourly(fallback24h);
+
+      renderGovernmentWeatherAlerts({
+        city: presetLoc.name,
+        region: presetLoc.admin1 || presetLoc.country || '',
+        countryCode: presetLoc.countryCode || '',
+        timezone: tz,
+        tempF: theme.temp,
+        feelsLikeF: theme.feelsLike,
+        highF: theme.high,
+        lowF: theme.low,
+        weatherCode: themeKey === 'rainy' ? 95 : 1,
+        upcomingCodes12h: [themeKey === 'rainy' ? 95 : 1],
+        maxPop24h: themeKey === 'rainy' ? 85 : 10,
+        maxUvToday: Number(theme.uv) || 5,
+        condition: theme.condition,
+        uv: Number(theme.uv) || 5,
+        windSpeedMph: theme.wind,
+        windGustsMph: theme.wind * 1.4,
+        humidity: parseInt(theme.humidity, 10) || 65,
+        dewPointF: theme.temp - 6,
+        visMiles: parseInt(theme.visibility, 10) || 10,
+        pressureHpa: 1012,
+        usAqi: 42
+      });
+
+      if (cartoMap && flyMap) {
+        cartoMap.flyTo([presetLoc.lat, presetLoc.lon], 7, { duration: 1.1 });
+        updateMapMarker(presetLoc.lat, presetLoc.lon, presetLoc.name, theme.temp, theme.condition);
+      }
+    }
+
+    function selectCityPreset(presetKey, flyMap = true, isInitial = false) {
+      const presetLoc = PRESET_LOCATIONS[presetKey] || PRESET_LOCATIONS.bangkok;
+      activePresetKey = presetKey;
+      latestWeatherData = null;
+      updatePresetButtonHighlight();
+      if (!isInitial) {
+        startHeroLocationTransition();
+      }
+      setWeatherTheme(presetLoc.themeKey, flyMap);
+      fetchLiveWeatherByCoords(presetLoc.lat, presetLoc.lon, presetLoc.name, flyMap, {
+        region: presetLoc.admin1 || presetLoc.country || '',
+        countryCode: presetLoc.countryCode || ''
+      }, isInitial);
+    }
+
+    window.addEventListener('resize', () => {
+      updatePresetButtonHighlight();
+      const activeMapBtn = document.getElementById(`map-btn-${mapOverlayMode}`);
+      positionSegmentedSlider('mapLayerSlider', activeMapBtn);
+    });
+
+    window.onload = function () {
+      setupCanvas();
+      renderHourly(WEATHER_THEMES.rainy.hourly);
+      renderTenDay();
+      lucide.createIcons();
+      renderSkySimulation();
+
+      // Initialize CARTO Map & Live Weather System (Default 1st Preset: Bangkok)
+      initCartoMap();
+      setupCitySearch();
+      selectCityPreset('bangkok', false, true);
+
+      // Ensure sliding pill indicators and wet glass droplet canvases are sized after initial layout
+      requestAnimationFrame(() => {
+        updatePresetButtonHighlight();
+        const activeMapBtn = document.getElementById(`map-btn-${mapOverlayMode}`);
+        positionSegmentedSlider('mapLayerSlider', activeMapBtn);
+        resizeWetGlassCards();
+      });
+    };
+  </script>
+</body>
+</html>
