@@ -2,8 +2,16 @@
 
 A 60+ FPS iOS-inspired real-time weather application for Android & Web featuring a WebGL volumetric cloud & sky shader, live rain/snow physics with glass-card condensation droplets, official regional government weather alerts, interactive CARTO Doppler radar/wind/temperature map, and real-time solar arc tracking.
 
-## Download Android APK
-- **[Download Weather-App.apk](./Weather-App.apk)**
+## Downloads (Latest Release 1.0.0)
+
+| Package | Direct Download Link | Description |
+| :--- | :--- | :--- |
+| **Android App (.apk)** | **[Download Weather-App.apk](https://github.com/sddsnmhjjg-ship-it/Apple-look-weather-app/releases/download/v1.0.0/Weather-App.apk)** | Ready-to-install 60+ FPS Android APK |
+| **Web & App Source Code (.zip)** | **[Download Apple-Look-Weather-Source-Code.zip](https://github.com/sddsnmhjjg-ship-it/Apple-look-weather-app/releases/download/v1.0.0/Apple-Look-Weather-Source-Code.zip)** | Standalone Web HTML + Apple Weather cloud assets + Capacitor config |
+| **Full Repository Source (.zip)** | **[Download Full Repo Source (.zip)](https://github.com/sddsnmhjjg-ship-it/Apple-look-weather-app/archive/refs/tags/v1.0.0.zip)** | Complete repository including Android Gradle project |
+| **Single-File Web App (weather.html)** | **[View / Download weather.html](https://github.com/sddsnmhjjg-ship-it/Apple-look-weather-app/raw/main/weather.html)** | Main HTML5 / WebGL / Canvas source file |
+
+> Browse all releases on the **[GitHub Releases Page](https://github.com/sddsnmhjjg-ship-it/Apple-look-weather-app/releases)**.
 
 ## Key Features
 - **60+ FPS Mobile-Optimized Engine**: Half-resolution mediump volumetric cloud shader with spatial early-exit culling, pre-baked GPU particle sprite atlas, and batched canvas draw calls.
