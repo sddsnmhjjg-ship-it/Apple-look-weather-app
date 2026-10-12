@@ -1286,11 +1286,14 @@
 
     function renderSkyOverlays() {
       const cloudMult = (typeof STAR_CONFIG !== 'undefined' && STAR_CONFIG.cloudMultiplier != null) ? STAR_CONFIG.cloudMultiplier : 1.0;
-      const opacity = Math.min(1.25, renderState.cloudAmount * cloudMult);
-      const stormBoost = 1 + renderState.stormFactor * 0.28;
+      // Cap .webp overlay scale at 1.0 so increasing Cloud Amount above 100% doesn't just brighten/over-opacify the static overlay
+      const overlayScale = Math.min(1.0, Math.max(0.0, cloudMult));
+      const baseCloud = cloudMult > 0.05 ? Math.max(renderState.cloudAmount, 0.42 * Math.min(1.0, cloudMult)) : 0.0;
+      const opacity = Math.min(0.92, baseCloud * overlayScale);
+      const stormBoost = 1 + renderState.stormFactor * 0.22;
       cloudOverlayElements.forEach((element, i) => {
         if (!element) return;
-        const nextOp = Math.min(1, opacity * (i < 3 ? [0.66, 0.55, 0.48][i] * stormBoost : renderState.mistAmount));
+        const nextOp = Math.min(0.88, opacity * (i < 3 ? [0.60, 0.50, 0.44][i] * stormBoost : renderState.mistAmount * overlayScale));
         if (Math.abs(nextOp - lastOverlayOpacities[i]) > 0.004) {
           lastOverlayOpacities[i] = nextOp;
           element.style.opacity = nextOp.toFixed(3);
@@ -1405,29 +1408,56 @@
 
         // 2. Night Stars are rendered at full native High-DPI resolution on #lightningCanvas for crisp, round pinpoint quality
 
-        // 3. Multi-Layered Drifting Misty Clouds (Early-exit spatial culling: skip bottom ~50% of screen where clouds are masked out)
-        float stormExpand = uStormFactor * 0.06;
-        if (uv.y > 0.48 - stormExpand && uCloudAmount > 0.01) {
+        // 3. Multi-Layered Drifting Volumetric Clouds (Early-exit spatial culling)
+        float amountScale = clamp(uCloudAmount, 0.0, 1.50);
+        float extraSkySpan = max(0.0, amountScale - 1.0) * 0.14;
+        float stormExpand = uStormFactor * 0.06 + extraSkySpan;
+        if (uv.y > 0.46 - stormExpand && amountScale > 0.01) {
           vec2 windA = uCloudOffsetA;
           vec2 windB = uCloudOffsetB;
+
+          // Fixed-scale octaves so adjusting Cloud Render Sharpness NEVER zooms or shifts cloud positions!
           float sharp = clamp(uCloudSharpness, 0.30, 1.50);
-          float detailFreq = mix(3.3, 6.4, clamp((sharp - 0.30) / 1.20, 0.0, 1.0));
+          float sharpNorm = clamp((sharp - 0.30) / 1.20, 0.0, 1.0);
 
           float cloudMacro = fbmMist(p * 2.4 + windA);
-          float cloudDetail = fbmMist(p * detailFreq + windB + cloudMacro * 0.65);
+          float cloudDetail = fbmMist(p * 4.8 + windB + cloudMacro * 0.65);
 
-          float verticalMask = smoothstep(0.54 - stormExpand, 0.76 - stormExpand * 0.5, uv.y) * smoothstep(1.03, 0.89, uv.y);
-          float cov = clamp(uCoverage + 0.18 + uStormFactor * 0.08, 0.35, 0.96);
-          float detailWeight = clamp(0.38 + (sharp - 1.0) * 0.20, 0.16, 0.54);
-          float edgeHigh = clamp(0.86 - uStormFactor * 0.08 - (sharp - 1.0) * 0.24, (1.0 - cov) + 0.08, 1.08);
-          float density = smoothstep(1.0 - cov, edgeHigh, (cloudMacro * (1.0 - detailWeight) + cloudDetail * detailWeight)) * verticalMask * uCloudAmount;
-          density = clamp(density * (1.0 + uStormFactor * 0.26), 0.0, 1.0);
+          // Fixed-scale high-frequency micro-turbulence & wispy billow filaments revealed as sharpness increases
+          vec2 mp = p * 11.5 - windB * 1.35 + cloudDetail * 0.85;
+          float cloudMicro = 0.64 * noise(mp) + 0.36 * noise(mp * 2.15 + vec2(3.7, 1.9));
+          float microCarve = (cloudMicro - 0.48) * 0.19 * sharpNorm;
 
-          float rimHigh = clamp(0.78 - (sharp - 1.0) * 0.26, 0.44, 0.96);
-          float topRim = smoothstep(0.35, rimHigh, cloudDetail);
+          // Secondary independent scattered cloud cells that spawn across empty sky as Cloud Amount increases
+          float cloudSecondary = fbmMist(p * 3.5 - windB * 0.82 + vec2(6.4, 3.1) + cloudDetail * 0.35);
+          float secondarySpawn = smoothstep(0.45, 1.45, amountScale) * 0.48;
+
+          float baseField = cloudMacro * 0.60 + cloudDetail * 0.40 + microCarve;
+          float secondaryField = cloudSecondary * 0.72 + cloudDetail * 0.28 + microCarve * 0.8;
+          float combinedField = max(baseField, secondaryField * (0.68 + secondarySpawn));
+
+          // Cloud Amount controls SPATIAL COVERAGE (how many clouds form across the sky) rather than just alpha brightness
+          float baseCov = max(0.42, uCoverage + 0.16 + uStormFactor * 0.08);
+          float targetCov = clamp(baseCov * mix(0.08, 1.0, clamp(amountScale, 0.0, 1.0)) + max(0.0, amountScale - 1.0) * 0.34, 0.0, 0.88);
+          float threshold = 1.0 - targetCov;
+
+          // Symmetric edge transition around threshold: sharper setting gives crisper, more defined 3D cloud edges in-place
+          float edgeHalfWidth = mix(0.24, 0.085, sharpNorm);
+          float verticalMask = smoothstep(0.52 - stormExpand, 0.75 - stormExpand * 0.5, uv.y) * smoothstep(1.03, 0.89, uv.y);
+          float presenceFade = smoothstep(0.0, 0.18, amountScale);
+          float density = smoothstep(threshold - edgeHalfWidth * 0.35, threshold + edgeHalfWidth, combinedField) * verticalMask * presenceFade;
+          density = clamp(density * (0.88 + uStormFactor * 0.12), 0.0, 0.92);
+
+          // 3D Internal Self-Shadowing & Sunlit Silver-Lining Relief (more defined 3D volume as sharpness increases)
+          float internalDepth = smoothstep(threshold - 0.05, threshold + 0.28, combinedField);
+          float microRelief = clamp(cloudDetail + (cloudMicro - 0.5) * 0.42 * sharpNorm, 0.0, 1.0);
+          float topRim = smoothstep(mix(0.42, 0.50, sharpNorm), mix(0.84, 0.68, sharpNorm), microRelief);
+
           vec3 bright = mix(uCloudBright, vec3(1.0, 0.74, 0.55), uHorizonWarmth * 0.16);
-          vec3 cloudColor = mix(uCloudShadow, uCloudMid, smoothstep(0.15, 0.65, cloudMacro));
-          cloudColor = mix(cloudColor, bright, topRim * (0.78 - uStormFactor * 0.22));
+          vec3 baseShade = mix(uCloudShadow, uCloudMid, smoothstep(0.12, 0.68, cloudMacro * 0.75 + internalDepth * 0.25));
+          // Deepen 3D ambient occlusion inside cloud folds when sharpness is high
+          baseShade = mix(baseShade, uCloudShadow * 0.92, (1.0 - microRelief) * 0.26 * sharpNorm);
+          vec3 cloudColor = mix(baseShade, bright, topRim * (0.72 - uStormFactor * 0.20));
 
           if (uStormFactor > 0.02) {
             float darkGrayBillow = fbmMist(p * 3.4 - windA * 0.85 + vec2(4.1, 2.3));
@@ -1436,12 +1466,12 @@
           }
 
           cloudColor += vec3(0.42, 0.68, 1.0) * uLightningIntensity * topRim * 0.85;
-          col = mix(col, cloudColor, density * (0.86 + uStormFactor * 0.10));
+          col = mix(col, cloudColor, density);
 
           // 4. Upper-Sky Ambient Mist Haze
           if (uv.y > 0.58 && uMistAmount > 0.02) {
             float mistBand = fbmMist(p * 3.2 - windA * 1.4) * smoothstep(0.60, 0.82, uv.y) * smoothstep(1.02, 0.86, uv.y);
-            col = mix(col, mix(uCloudBright, uCloudMid, 0.5), mistBand * uMistAmount * 0.16);
+            col = mix(col, mix(uCloudBright, uCloudMid, 0.5), mistBand * uMistAmount * min(1.0, amountScale) * 0.14);
           }
         }
 
@@ -2449,11 +2479,15 @@
         gl.uniform3fv(glUniforms.uCloudMid, renderState.cloudMid);
         gl.uniform3fv(glUniforms.uCloudShadow, renderState.cloudShadow);
 
+        const cloudMult = STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0;
+        const effectiveCloudAmt = cloudMult <= 1.0
+          ? renderState.cloudAmount * cloudMult
+          : Math.min(1.50, Math.max(renderState.cloudAmount, 0.55) * cloudMult + (cloudMult - 1.0) * 0.45);
         gl.uniform1f(glUniforms.uCoverage, renderState.coverage);
         gl.uniform1f(glUniforms.uStormFactor, renderState.stormFactor);
         gl.uniform1f(glUniforms.uNightFactor, renderState.nightFactor);
-        gl.uniform1f(glUniforms.uCloudAmount, Math.min(1.35, renderState.cloudAmount * (STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0)));
-        gl.uniform1f(glUniforms.uMistAmount, Math.min(1.25, renderState.mistAmount * (STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0)));
+        gl.uniform1f(glUniforms.uCloudAmount, effectiveCloudAmt);
+        gl.uniform1f(glUniforms.uMistAmount, Math.min(1.0, renderState.mistAmount * Math.min(1.0, cloudMult)));
         gl.uniform1f(glUniforms.uHorizonWarmth, renderState.horizonWarmth);
         gl.uniform1f(glUniforms.uEveningFactor, renderState.eveningFactor);
         gl.uniform1f(glUniforms.uLightningIntensity, lightningIntensity);
@@ -2870,10 +2904,10 @@
       const isMobile = window.innerWidth < 768;
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
       const sharp = Math.max(0.30, Math.min(1.50, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0));
-      const baseScale = isLowGfx ? (isMobile ? 0.36 : 0.48) : (isMobile ? 0.52 : 0.72);
+      const baseScale = isLowGfx ? (isMobile ? 0.36 : 0.48) : (isMobile ? 0.56 : 0.80);
       const scale = baseScale * sharp;
-      const maxW = Math.round((isLowGfx ? 720 : 1280) * Math.max(0.5, sharp));
-      const maxH = Math.round((isLowGfx ? 480 : 860) * Math.max(0.5, sharp));
+      const maxW = Math.round((isLowGfx ? 720 : 1440) * Math.max(0.5, sharp));
+      const maxH = Math.round((isLowGfx ? 480 : 960) * Math.max(0.5, sharp));
       const targetW = Math.min(maxW, Math.max(200, Math.floor(window.innerWidth * scale)));
       const targetH = Math.min(maxH, Math.max(140, Math.floor(window.innerHeight * scale)));
       if (cloudCanvas.width !== targetW || cloudCanvas.height !== targetH) {
@@ -2884,10 +2918,10 @@
         }
       }
 
-      // Sync sharpness/softness of upper-sky .webp cloud overlays
+      // Soften .webp cloud overlays only when sharpness is reduced (<96%); keep natural unbrightened clarity at >=96%
       const filterStr = sharp < 0.96
-        ? `blur(${((1.0 - sharp) * 6.5).toFixed(1)}px)`
-        : (sharp > 1.04 ? `contrast(${(1.0 + (sharp - 1.0) * 0.28).toFixed(2)})` : 'none');
+        ? `blur(${((1.0 - sharp) * 6.0).toFixed(1)}px)`
+        : 'none';
       for (let i = 0; i < 3; i++) {
         const el = cloudOverlayElements[i];
         if (el && el.style.filter !== filterStr) {
