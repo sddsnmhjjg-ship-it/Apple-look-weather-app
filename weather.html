@@ -1423,41 +1423,44 @@
           float cloudMacro = fbmMist(p * 2.4 + windA);
           float cloudDetail = fbmMist(p * 4.8 + windB + cloudMacro * 0.65);
 
-          // Fixed-scale high-frequency micro-turbulence & wispy billow filaments revealed as sharpness increases
-          vec2 mp = p * 11.5 - windB * 1.35 + cloudDetail * 0.85;
-          float cloudMicro = 0.64 * noise(mp) + 0.36 * noise(mp * 2.15 + vec2(3.7, 1.9));
-          float microCarve = (cloudMicro - 0.48) * 0.19 * sharpNorm;
-
           // Secondary independent scattered cloud cells that spawn across empty sky as Cloud Amount increases
           float cloudSecondary = fbmMist(p * 3.5 - windB * 0.82 + vec2(6.4, 3.1) + cloudDetail * 0.35);
           float secondarySpawn = smoothstep(0.45, 1.45, amountScale) * 0.48;
 
-          float baseField = cloudMacro * 0.60 + cloudDetail * 0.40 + microCarve;
-          float secondaryField = cloudSecondary * 0.72 + cloudDetail * 0.28 + microCarve * 0.8;
-          float combinedField = max(baseField, secondaryField * (0.68 + secondarySpawn));
+          float baseField = cloudMacro * 0.62 + cloudDetail * 0.38;
+          float secondaryField = cloudSecondary * 0.72 + cloudDetail * 0.28;
+          float smoothBodyField = max(baseField, secondaryField * (0.68 + secondarySpawn));
 
-          // Cloud Amount controls SPATIAL COVERAGE (how many clouds form across the sky) rather than just alpha brightness
+          // Cloud Amount controls SPATIAL COVERAGE (how many clouds form across the sky)
           float baseCov = max(0.42, uCoverage + 0.16 + uStormFactor * 0.08);
           float targetCov = clamp(baseCov * mix(0.08, 1.0, clamp(amountScale, 0.0, 1.0)) + max(0.0, amountScale - 1.0) * 0.34, 0.0, 0.88);
           float threshold = 1.0 - targetCov;
 
-          // Symmetric edge transition around threshold: sharper setting gives crisper, more defined 3D cloud edges in-place
-          float edgeHalfWidth = mix(0.24, 0.085, sharpNorm);
+          // Isolate ONLY the outer tips / wispy crests of each cloud (0.0 inside the smooth belly, 1.0 at the outer tips)
+          float tipZone = smoothstep(threshold - 0.10, threshold + 0.05, smoothBodyField)
+                        * (1.0 - smoothstep(threshold + 0.06, threshold + 0.24, smoothBodyField));
+
+          // Sculpt crisp, tapered wispy tips ONLY in tipZone using rotated FBM (keeps cloud belly 100% silky-smooth!)
+          float wispyFbm = fbmMist(p * vec2(8.6, 11.2) - windB * 1.25 + cloudDetail * 0.75);
+          float sharpTipRidge = 1.0 - abs(wispyFbm * 2.0 - 1.0);
+          float tipSculpt = (sharpTipRidge - 0.52) * 0.22 * sharpNorm * tipZone;
+          float combinedField = smoothBodyField + tipSculpt;
+
+          // Keep body gradient plush & wide (0.28) like low-sharpness, while tightening ONLY the outer tip boundary
+          float tipTightness = mix(0.28, 0.13, sharpNorm * tipZone);
           float verticalMask = smoothstep(0.52 - stormExpand, 0.75 - stormExpand * 0.5, uv.y) * smoothstep(1.03, 0.89, uv.y);
           float presenceFade = smoothstep(0.0, 0.18, amountScale);
-          float density = smoothstep(threshold - edgeHalfWidth * 0.35, threshold + edgeHalfWidth, combinedField) * verticalMask * presenceFade;
+          float density = smoothstep(threshold - 0.04, threshold + tipTightness, combinedField) * verticalMask * presenceFade;
           density = clamp(density * (0.88 + uStormFactor * 0.12), 0.0, 0.92);
 
-          // 3D Internal Self-Shadowing & Sunlit Silver-Lining Relief (more defined 3D volume as sharpness increases)
-          float internalDepth = smoothstep(threshold - 0.05, threshold + 0.28, combinedField);
-          float microRelief = clamp(cloudDetail + (cloudMicro - 0.5) * 0.42 * sharpNorm, 0.0, 1.0);
-          float topRim = smoothstep(mix(0.42, 0.50, sharpNorm), mix(0.84, 0.68, sharpNorm), microRelief);
+          // Crisp silver-lining highlight right along the outer cloud tips/crests while keeping inner shading soft & clean
+          float softTopRim = smoothstep(0.36, 0.80, cloudDetail);
+          float crispTipRim = smoothstep(0.52, 0.80, sharpTipRidge * 0.65 + cloudDetail * 0.35) * tipZone * sharpNorm;
+          float topRim = clamp(softTopRim + crispTipRim * 0.75, 0.0, 1.0);
 
           vec3 bright = mix(uCloudBright, vec3(1.0, 0.74, 0.55), uHorizonWarmth * 0.16);
-          vec3 baseShade = mix(uCloudShadow, uCloudMid, smoothstep(0.12, 0.68, cloudMacro * 0.75 + internalDepth * 0.25));
-          // Deepen 3D ambient occlusion inside cloud folds when sharpness is high
-          baseShade = mix(baseShade, uCloudShadow * 0.92, (1.0 - microRelief) * 0.26 * sharpNorm);
-          vec3 cloudColor = mix(baseShade, bright, topRim * (0.72 - uStormFactor * 0.20));
+          vec3 cloudColor = mix(uCloudShadow, uCloudMid, smoothstep(0.15, 0.66, cloudMacro));
+          cloudColor = mix(cloudColor, bright, topRim * (0.76 - uStormFactor * 0.20));
 
           if (uStormFactor > 0.02) {
             float darkGrayBillow = fbmMist(p * 3.4 - windA * 0.85 + vec2(4.1, 2.3));
@@ -2904,12 +2907,12 @@
       const isMobile = window.innerWidth < 768;
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
       const sharp = Math.max(0.30, Math.min(1.50, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0));
-      const baseScale = isLowGfx ? (isMobile ? 0.36 : 0.48) : (isMobile ? 0.56 : 0.80);
-      const scale = baseScale * sharp;
-      const maxW = Math.round((isLowGfx ? 720 : 1440) * Math.max(0.5, sharp));
-      const maxH = Math.round((isLowGfx ? 480 : 960) * Math.max(0.5, sharp));
-      const targetW = Math.min(maxW, Math.max(200, Math.floor(window.innerWidth * scale)));
-      const targetH = Math.min(maxH, Math.max(140, Math.floor(window.innerHeight * scale)));
+      const baseScale = isLowGfx ? (isMobile ? 0.38 : 0.50) : (isMobile ? 0.65 : 0.90);
+      const scale = baseScale * (0.65 + 0.35 * sharp);
+      const maxW = Math.round((isLowGfx ? 800 : 1680) * Math.max(0.65, sharp));
+      const maxH = Math.round((isLowGfx ? 540 : 1080) * Math.max(0.65, sharp));
+      const targetW = Math.min(maxW, Math.max(320, Math.floor(window.innerWidth * scale)));
+      const targetH = Math.min(maxH, Math.max(220, Math.floor(window.innerHeight * scale)));
       if (cloudCanvas.width !== targetW || cloudCanvas.height !== targetH) {
         cloudCanvas.width = targetW;
         cloudCanvas.height = targetH;
@@ -2918,9 +2921,9 @@
         }
       }
 
-      // Soften .webp cloud overlays only when sharpness is reduced (<96%); keep natural unbrightened clarity at >=96%
-      const filterStr = sharp < 0.96
-        ? `blur(${((1.0 - sharp) * 6.0).toFixed(1)}px)`
+      // Keep .webp cloud tips razor-crisp at >=75% sharpness; only soften when user explicitly lowers sharpness (<75%)
+      const filterStr = sharp < 0.75
+        ? `blur(${((0.75 - sharp) * 6.0).toFixed(1)}px)`
         : 'none';
       for (let i = 0; i < 3; i++) {
         const el = cloudOverlayElements[i];
