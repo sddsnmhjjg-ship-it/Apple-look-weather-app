@@ -331,13 +331,22 @@
       overflow: hidden;
     }
     .settings-popover {
+      position: absolute !important;
+      top: calc(100% + 10px);
+      right: 0;
+      background: linear-gradient(180deg, rgba(20, 34, 60, 0.90) 0%, rgba(12, 22, 42, 0.92) 100%);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.22);
       opacity: 0;
+      visibility: hidden;
       transform: translateY(-8px) scale(0.96);
       pointer-events: none;
-      transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1), transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.22s;
     }
     .settings-popover.open {
       opacity: 1;
+      visibility: visible;
       transform: translateY(0) scale(1);
       pointer-events: auto;
     }
@@ -479,7 +488,7 @@
 
           <!-- In-App Settings Popover -->
           <div id="appSettingsPopover" onclick="event.stopPropagation()"
-               class="settings-popover fixed sm:absolute right-4 sm:right-0 top-16 sm:top-10 w-[calc(100vw-2rem)] max-w-[330px] rounded-3xl ios-glass p-4 z-50 shadow-2xl border border-white/20 text-left select-none">
+               class="settings-popover w-[calc(100vw-2rem)] max-w-[330px] rounded-3xl p-4 z-50 border border-white/20 text-left select-none">
             <!-- Header -->
             <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-white/15">
               <div class="flex items-center space-x-2">
