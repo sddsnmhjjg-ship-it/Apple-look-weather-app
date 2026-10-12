@@ -1,0 +1,13 @@
+﻿# Android / Gradle / Node build artifacts
+node_modules/
+.gradle/
+**/build/
+local.properties
+.idea/
+.DS_Store
+*.iml
+*.jks
+*.keystore
+
+# Keep the downloadable release APK in repository root
+!/Weather-App.apk
