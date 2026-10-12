@@ -330,6 +330,61 @@
     .gov-alert-details-inner {
       overflow: hidden;
     }
+    .settings-popover {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.96);
+      pointer-events: none;
+      transition: opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1), transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .settings-popover.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .adv-settings-grid {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, margin-top 0.25s ease;
+      margin-top: 0;
+    }
+    .adv-settings-grid.open {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      margin-top: 0.65rem;
+    }
+    .ios-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      outline: none;
+    }
+    .ios-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    .ios-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+    }
+    .ios-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border: none;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+      cursor: pointer;
+    }
   </style>
 </head>
 <body class="relative min-h-screen text-white overflow-x-hidden antialiased">
@@ -415,13 +470,150 @@
             California
           </button>
         </div>
-        <div class="inline-flex items-center rounded-full ios-glass p-0.5 text-xs font-bold text-white/90 shadow-lg divide-x divide-white/15">
-          <button onclick="toggleTempUnit()" id="unitToggleBtn" title="Switch °C / °F" class="ios-action-btn px-2.5 py-1 rounded-l-full hover:bg-white/15 transition">
-            °C
+        <!-- Single Settings Button & Apple Liquid-Glass Popover -->
+        <div id="settingsMenuWrap" class="relative">
+          <button onclick="toggleSettingsMenu(event)" id="settingsMenuBtn" title="Settings" aria-label="Settings"
+                  class="ios-action-btn w-8 h-8 rounded-full ios-glass flex items-center justify-center text-white/90 hover:text-white hover:bg-white/20 shadow-lg transition">
+            <i data-lucide="settings" id="settingsGearIcon" class="w-4 h-4 transition-transform duration-300"></i>
           </button>
-          <button onclick="toggleLanguage()" id="langToggleBtn" title="Switch Language (EN / TH)" class="ios-action-btn px-2.5 py-1 rounded-r-full text-sky-300 hover:text-white hover:bg-white/15 transition tracking-wide">
-            EN
-          </button>
+
+          <!-- In-App Settings Popover -->
+          <div id="appSettingsPopover" onclick="event.stopPropagation()"
+               class="settings-popover fixed sm:absolute right-4 sm:right-0 top-16 sm:top-10 w-[calc(100vw-2rem)] max-w-[330px] rounded-3xl ios-glass p-4 z-50 shadow-2xl border border-white/20 text-left select-none">
+            <!-- Header -->
+            <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-white/15">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4 text-sky-300"></i>
+                <span id="settingsHeaderTitle" class="text-xs font-bold uppercase tracking-wider text-white/95">Settings</span>
+              </div>
+              <button onclick="closeSettingsMenu()" class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <!-- 1. Temperature & Wind Units -->
+            <div class="mb-3">
+              <label id="setLblUnits" class="block text-[11px] font-semibold text-white/75 mb-1.5">Temperature &amp; Units</label>
+              <div class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-black/25 border border-white/10 text-xs font-semibold">
+                <button onclick="setTempUnitPref(true)" id="setUnitC" class="py-1.5 rounded-xl bg-white/20 text-white shadow transition">
+                  °C &middot; km/h
+                </button>
+                <button onclick="setTempUnitPref(false)" id="setUnitF" class="py-1.5 rounded-xl text-white/65 hover:text-white transition">
+                  °F &middot; mph
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Language -->
+            <div class="mb-3">
+              <label id="setLblLang" class="block text-[11px] font-semibold text-white/75 mb-1.5">Language</label>
+              <div class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-black/25 border border-white/10 text-xs font-semibold">
+                <button onclick="setLanguagePref('en')" id="setLangEN" class="py-1.5 rounded-xl bg-white/20 text-white shadow transition">
+                  English (EN)
+                </button>
+                <button onclick="setLanguagePref('th')" id="setLangTH" class="py-1.5 rounded-xl text-white/65 hover:text-white transition">
+                  ภาษาไทย (TH)
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Performance / Graphics Quality -->
+            <div class="mb-3">
+              <label id="setLblGraphics" class="block text-[11px] font-semibold text-white/75 mb-1.5">Graphics &amp; Performance</label>
+              <div class="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-black/25 border border-white/10 text-xs font-semibold">
+                <button onclick="setGraphicsQuality('high')" id="setGfxHigh" class="py-1.5 rounded-xl bg-white/20 text-white shadow transition">
+                  High Quality
+                </button>
+                <button onclick="setGraphicsQuality('low')" id="setGfxLow" class="py-1.5 rounded-xl text-white/65 hover:text-white transition">
+                  Battery Saver
+                </button>
+              </div>
+            </div>
+
+            <!-- 4. Collapsible Advanced Sky & Star Section at Bottom -->
+            <div class="pt-2 border-t border-white/15">
+              <button onclick="toggleAdvancedSettings()" id="advSettingsToggleBtn"
+                      class="w-full flex items-center justify-between py-1.5 px-2 rounded-xl hover:bg-white/10 transition text-xs font-semibold text-sky-200">
+                <span class="flex items-center space-x-1.5">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-sky-300"></i>
+                  <span id="setLblAdvancedBtn">Advanced Sky &amp; Star Tuning</span>
+                </span>
+                <i data-lucide="chevron-down" id="advSettingsChevron" class="w-4 h-4 text-white/70 transition-transform duration-300"></i>
+              </button>
+
+              <div id="advSettingsDrawer" class="adv-settings-grid">
+                <div class="gov-alert-details-inner space-y-2.5 px-1 pt-1">
+                  <!-- Cloud Density / Amount -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblCloudAmt">Cloud Amount</span>
+                      <span id="valCloudAmt" class="text-sky-300 font-semibold">100%</span>
+                    </div>
+                    <input id="sliderCloudAmt" type="range" min="0" max="150" step="5" value="100"
+                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                  </div>
+
+                  <!-- Star Pixel Size -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblStarSize">Star Size (Pixels)</span>
+                      <span id="valStarSize" class="text-sky-300 font-semibold">3.7 px</span>
+                    </div>
+                    <input id="sliderStarSize" type="range" min="1.4" max="6.5" step="0.1" value="3.7"
+                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                  </div>
+
+                  <!-- Star Core Pinpoint -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblStarCore">Star Core Pinpoint</span>
+                      <span id="valStarCore" class="text-sky-300 font-semibold">9.0</span>
+                    </div>
+                    <input id="sliderStarCore" type="range" min="4.0" max="16.0" step="0.5" value="9.0"
+                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                  </div>
+
+                  <!-- Star Bloom -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblStarBloom">Star Bloom Glow</span>
+                      <span id="valStarBloom" class="text-sky-300 font-semibold">36%</span>
+                    </div>
+                    <input id="sliderStarBloom" type="range" min="0" max="80" step="2" value="36"
+                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                  </div>
+
+                  <!-- Star Count -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblStarCount">Star Count</span>
+                      <span id="valStarCount" class="text-sky-300 font-semibold">175</span>
+                    </div>
+                    <input id="sliderStarCount" type="range" min="30" max="320" step="5" value="175"
+                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                  </div>
+
+                  <!-- Star Sky Area -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblStarArea">Upper Sky Star Area</span>
+                      <span id="valStarArea" class="text-sky-300 font-semibold">38%</span>
+                    </div>
+                    <input id="sliderStarArea" type="range" min="20" max="65" step="1" value="38"
+                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                  </div>
+
+                  <!-- Reset Defaults Button -->
+                  <div class="pt-1">
+                    <button onclick="resetSkyStarDefaults()" id="setBtnResetSky"
+                            class="w-full py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-white/85 hover:text-white transition">
+                      Reset Sky &amp; Star Defaults
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -1047,7 +1239,8 @@
     const lastOverlayOpacities = [-1, -1, -1, -1, -1];
 
     function renderSkyOverlays() {
-      const opacity = renderState.cloudAmount;
+      const cloudMult = (typeof STAR_CONFIG !== 'undefined' && STAR_CONFIG.cloudMultiplier != null) ? STAR_CONFIG.cloudMultiplier : 1.0;
+      const opacity = Math.min(1.25, renderState.cloudAmount * cloudMult);
       const stormBoost = 1 + renderState.stormFactor * 0.28;
       cloudOverlayElements.forEach((element, i) => {
         if (!element) return;
@@ -1293,6 +1486,27 @@
     let nightStars = [];
     let wetCardStates = [];
 
+    // ============================================================================
+    // ตั้งค่าดวงดาวตอนกลางคืน (ปรับตัวเลขตรงนี้ได้เลย!)
+    // ============================================================================
+    const STAR_CONFIG = {
+      minSizePx: 2.8,        // ขนาดต่ำสุดของดวงดาวรวมแสงฟุ้ง Bloom (หน่วยเป็นพิกเซล เช่น 2.0 - 3.5)
+      maxSizePx: 4.6,        // ขนาดสูงสุดของดวงดาวรวมแสงฟุ้ง Bloom (หน่วยเป็นพิกเซล เช่น 3.5 - 5.5)
+      coreRadiusSprite: 9.0, // ขนาดจุดขาวตรงกลางดาว (ค่ายิ่งน้อยจุดยิ่งเล็กคม: แนะนำ 6.0 ถึง 12.0 จากเต็ม 30.0)
+      bloomOpacity: 0.36,    // ความสว่างของแสงฟุ้ง Bloom รอบดาว (0.0 = ไม่มี Bloom, 0.35 = กำลังดี, 0.8 = ฟุ้งจัด)
+      countDesktop: 175,     // จำนวนดาวบนคอมพิวเตอร์ (PC)
+      countMobile: 115,      // จำนวนดาวบนมือถือ
+      skyHeightRatio: 0.38,  // ขอบเขตความสูงของพื้นที่ดาวจากด้านบนจอ (0.38 = กินพื้นที่ 38% บนสุดของจอ)
+      cloudMultiplier: 1.0,  // ปริมาณเมฆ (0.0 = ปิดเมฆ, 1.0 = ปกติ 100%, 1.5 = เมฆหนา 150%)
+      graphicsQuality: 'high'// 'high' (คมชัดสูง) หรือ 'low' (ประหยัดพลังงานสำหรับเครื่องสเปกต่ำ)
+    };
+    window.STAR_CONFIG = STAR_CONFIG;
+    window.rebuildStars = function () {
+      starSpriteCanvas = null;
+      buildParticleSpriteAtlas();
+      initPrecipitation();
+    };
+
     function initPrecipitation() {
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -1303,9 +1517,13 @@
       snowRimPuffs = [];
       nightStars = [];
 
-      // Organic random star placement in the upper sky (no rigid grid, smooth vertical fade, tiny pinpoint core + soft 3-4.5px bloom)
-      const starTargetCount = w < 640 ? 115 : 175;
-      const skyHeight = h * 0.38;
+      const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
+      const gfxMult = isLowGfx ? 0.48 : 1.0;
+
+      // Organic random star placement in the upper sky (no rigid grid, smooth vertical fade, tiny pinpoint core + soft bloom)
+      const baseStarCount = w < 640 ? STAR_CONFIG.countMobile : STAR_CONFIG.countDesktop;
+      const starTargetCount = Math.round(baseStarCount * (isLowGfx ? 0.65 : 1.0));
+      const skyHeight = h * STAR_CONFIG.skyHeightRatio;
       const minDistSq = 18 * 18;
 
       for (let i = 0; i < starTargetCount; i++) {
@@ -1326,8 +1544,8 @@
           if (!tooClose) break;
         }
         const yNorm = y / Math.max(1, skyHeight);
-        // Total diameter (including soft outer bloom) = 2.8px to 4.6px -> tiny 0.8px-1.3px pinpoint white core inside!
-        const totalDiam = 2.8 + Math.random() * 1.8;
+        const sizeRange = Math.max(0, STAR_CONFIG.maxSizePx - STAR_CONFIG.minSizePx);
+        const totalDiam = STAR_CONFIG.minSizePx + Math.random() * sizeRange;
         const r = totalDiam * 0.5;
         // Natural brightness variation + organic soft fade toward lower sky (no flat cutoff line)
         const baseBright = 0.52 + Math.random() * 0.48;
@@ -1349,7 +1567,7 @@
         });
       }
 
-      const rainCount = w < 640 ? 115 : 210;
+      const rainCount = Math.round((w < 640 ? 115 : 210) * gfxMult);
       for (let i = 0; i < rainCount; i++) {
         const depth = Math.random();
         rainDrops.push({
@@ -1364,7 +1582,7 @@
         });
       }
 
-      const snowCount = w < 640 ? 110 : 190;
+      const snowCount = Math.round((w < 640 ? 110 : 190) * gfxMult);
       for (let i = 0; i < snowCount; i++) {
         const depth = Math.random();
         snowFlakes.push({
@@ -1539,26 +1757,31 @@
         starSpriteCanvas.width = 64;
         starSpriteCanvas.height = 64;
         const stCtx = starSpriteCanvas.getContext('2d');
-        // 1. Delicate translucent circular bloom halo (spans 2.8-4.6px total on screen)
-        const bloomGrad = stCtx.createRadialGradient(32, 32, 2.0, 32, 32, 30.0);
-        bloomGrad.addColorStop(0, 'rgba(224, 242, 254, 0.36)');
-        bloomGrad.addColorStop(0.35, 'rgba(186, 230, 253, 0.16)');
-        bloomGrad.addColorStop(0.70, 'rgba(147, 197, 253, 0.05)');
-        bloomGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
-        stCtx.fillStyle = bloomGrad;
-        stCtx.beginPath();
-        stCtx.arc(32, 32, 30.0, 0, Math.PI * 2);
-        stCtx.fill();
+        const bOp = Math.max(0, Math.min(1, STAR_CONFIG.bloomOpacity));
+        const cRad = Math.max(2.0, Math.min(28.0, STAR_CONFIG.coreRadiusSprite));
 
-        // 2. Tiny razor-sharp pure-white pinpoint core (~0.8px to 1.3px on screen)
-        const coreGrad = stCtx.createRadialGradient(32, 32, 0, 32, 32, 9.0);
+        // 1. Delicate translucent circular bloom halo
+        if (bOp > 0.005) {
+          const bloomGrad = stCtx.createRadialGradient(32, 32, 2.0, 32, 32, 30.0);
+          bloomGrad.addColorStop(0, `rgba(224, 242, 254, ${bOp})`);
+          bloomGrad.addColorStop(0.35, `rgba(186, 230, 253, ${(bOp * 0.44).toFixed(3)})`);
+          bloomGrad.addColorStop(0.70, `rgba(147, 197, 253, ${(bOp * 0.14).toFixed(3)})`);
+          bloomGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
+          stCtx.fillStyle = bloomGrad;
+          stCtx.beginPath();
+          stCtx.arc(32, 32, 30.0, 0, Math.PI * 2);
+          stCtx.fill();
+        }
+
+        // 2. Tiny razor-sharp pure-white pinpoint core
+        const coreGrad = stCtx.createRadialGradient(32, 32, 0, 32, 32, cRad);
         coreGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
         coreGrad.addColorStop(0.62, 'rgba(255, 255, 255, 1)');
         coreGrad.addColorStop(0.86, 'rgba(248, 252, 255, 0.65)');
         coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         stCtx.fillStyle = coreGrad;
         stCtx.beginPath();
-        stCtx.arc(32, 32, 9.0, 0, Math.PI * 2);
+        stCtx.arc(32, 32, cRad, 0, Math.PI * 2);
         stCtx.fill();
       }
 
@@ -2143,8 +2366,8 @@
         gl.uniform1f(glUniforms.uCoverage, renderState.coverage);
         gl.uniform1f(glUniforms.uStormFactor, renderState.stormFactor);
         gl.uniform1f(glUniforms.uNightFactor, renderState.nightFactor);
-        gl.uniform1f(glUniforms.uCloudAmount, renderState.cloudAmount);
-        gl.uniform1f(glUniforms.uMistAmount, renderState.mistAmount);
+        gl.uniform1f(glUniforms.uCloudAmount, Math.min(1.35, renderState.cloudAmount * (STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0)));
+        gl.uniform1f(glUniforms.uMistAmount, Math.min(1.25, renderState.mistAmount * (STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0)));
         gl.uniform1f(glUniforms.uHorizonWarmth, renderState.horizonWarmth);
         gl.uniform1f(glUniforms.uEveningFactor, renderState.eveningFactor);
         gl.uniform1f(glUniforms.uLightningIntensity, lightningIntensity);
@@ -2527,7 +2750,7 @@
       }
 
       // 3. Render Apple Clinging & Sliding Water Droplets on Glass Card Backgrounds (equal visibility across all rain conditions)
-      const wetCardOpacity = smoothSkyStep(0.02, 0.15, renderState.rainAmount);
+      const wetCardOpacity = STAR_CONFIG.graphicsQuality === 'low' ? 0 : smoothSkyStep(0.02, 0.15, renderState.rainAmount);
       renderWetGlassCards(dt, elapsed, wetCardOpacity);
 
       requestAnimationFrame(renderSkySimulation);
@@ -2559,15 +2782,16 @@
       // Clouds and atmospheric gradients are soft low-frequency signals, so rendering at ~0.55x resolution
       // with hardware bilinear upscaling looks 100% identical while cutting mobile GPU fragment load by ~70%.
       const isMobile = window.innerWidth < 768;
-      const scale = isMobile ? 0.52 : 0.72;
-      cloudCanvas.width = Math.min(1080, Math.max(360, Math.floor(window.innerWidth * scale)));
-      cloudCanvas.height = Math.min(720, Math.max(280, Math.floor(window.innerHeight * scale)));
+      const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
+      const scale = isLowGfx ? (isMobile ? 0.36 : 0.48) : (isMobile ? 0.52 : 0.72);
+      cloudCanvas.width = Math.min(isLowGfx ? 720 : 1080, Math.max(300, Math.floor(window.innerWidth * scale)));
+      cloudCanvas.height = Math.min(isLowGfx ? 480 : 720, Math.max(220, Math.floor(window.innerHeight * scale)));
       if (gl) {
         gl.viewport(0, 0, cloudCanvas.width, cloudCanvas.height);
       }
 
       if (lightningCanvas) {
-        const starDpr = Math.min(2, window.devicePixelRatio || 1);
+        const starDpr = isLowGfx ? 1 : Math.min(2, window.devicePixelRatio || 1);
         lightningCanvas.width = Math.round(window.innerWidth * starDpr);
         lightningCanvas.height = Math.round(window.innerHeight * starDpr);
         if (lightningCtx) {
@@ -3967,6 +4191,23 @@
         if (el) el.textContent = text;
       };
 
+      setTxt('settingsHeaderTitle', th ? 'การตั้งค่า' : 'Settings');
+      setTxt('setLblUnits', th ? 'หน่วยอุณหภูมิและลม' : 'Temperature & Units');
+      setTxt('setUnitC', th ? '°C · กม./ชม.' : '°C · km/h');
+      setTxt('setUnitF', th ? '°F · ไมล์/ชม.' : '°F · mph');
+      setTxt('setLblLang', th ? 'ภาษาที่แสดงผล (Language)' : 'Language');
+      setTxt('setLblGraphics', th ? 'กราฟิกและประสิทธิภาพ' : 'Graphics & Performance');
+      setTxt('setGfxHigh', th ? 'คมชัดสูง (High)' : 'High Quality');
+      setTxt('setGfxLow', th ? 'ประหยัดพลังงาน' : 'Battery Saver');
+      setTxt('setLblAdvancedBtn', th ? 'ตั้งค่าเมฆและดวงดาวขั้นสูง' : 'Advanced Sky & Star Tuning');
+      setTxt('setLblCloudAmt', th ? 'ความหนาแน่นของเมฆ' : 'Cloud Amount');
+      setTxt('setLblStarSize', th ? 'ขนาดดวงดาว (Pixel)' : 'Star Size (Pixels)');
+      setTxt('setLblStarCore', th ? 'ขนาดจุดใจกลางดาว' : 'Star Core Pinpoint');
+      setTxt('setLblStarBloom', th ? 'แสงฟุ้งรอบดาว (Bloom)' : 'Star Bloom Glow');
+      setTxt('setLblStarCount', th ? 'จำนวนดวงดาว' : 'Star Count');
+      setTxt('setLblStarArea', th ? 'พื้นที่ดาวโซนบนของจอ' : 'Upper Sky Star Area');
+      setTxt('setBtnResetSky', th ? 'รีเซ็ตค่าท้องฟ้าและดวงดาว' : 'Reset Sky & Star Defaults');
+
       setTxt('hourlyTitleSpan', th ? 'พยากรณ์รายชั่วโมง · 24 ชั่วโมงข้างหน้า' : 'Hourly Forecast · Next 24 Hours');
       setTxt('weatherMapTitleSpan', th ? 'แผนที่สภาพอากาศ' : 'Weather Map');
       setTxt('map-btn-radar', th ? 'เรดาร์' : 'Radar');
@@ -3988,6 +4229,10 @@
       setTxt('pressureTrend', th ? 'คงที่' : 'Steady');
       setTxt('footerLine1', th ? 'ข้อมูลสภาพอากาศแบบเรียลไทม์ · แผนที่ CARTO · เมฆสามมิติ WebGL' : 'Real-Time Weather Telemetry · CARTO Spatial Basemaps · WebGL Volumetric Clouds');
       setTxt('footerLine2', th ? 'คลิกตำแหน่งใดก็ได้บนแผนที่ CARTO หรือค้นหาชื่อเมืองทั่วโลกเพื่อดูสภาพอากาศสด' : 'Click anywhere on the CARTO map or search any city worldwide for live conditions');
+
+      if (typeof syncSettingsUiState === 'function') {
+        syncSettingsUiState();
+      }
 
       requestAnimationFrame(() => {
         updatePresetButtonHighlight();
@@ -4108,6 +4353,209 @@
       renderGovernmentWeatherAlerts(d);
     }
 
+    const SETTINGS_STORAGE_KEY = 'apple_weather_app_settings_v1';
+
+    function saveAppSettings() {
+      try {
+        const payload = {
+          useCelsius,
+          currentLang,
+          graphicsQuality: STAR_CONFIG.graphicsQuality,
+          cloudMultiplier: STAR_CONFIG.cloudMultiplier,
+          minSizePx: STAR_CONFIG.minSizePx,
+          maxSizePx: STAR_CONFIG.maxSizePx,
+          coreRadiusSprite: STAR_CONFIG.coreRadiusSprite,
+          bloomOpacity: STAR_CONFIG.bloomOpacity,
+          countDesktop: STAR_CONFIG.countDesktop,
+          countMobile: STAR_CONFIG.countMobile,
+          skyHeightRatio: STAR_CONFIG.skyHeightRatio
+        };
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(payload));
+      } catch (_) {}
+    }
+
+    function loadAppSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (typeof data.useCelsius === 'boolean') useCelsius = data.useCelsius;
+        if (data.currentLang === 'en' || data.currentLang === 'th') currentLang = data.currentLang;
+        if (data.graphicsQuality === 'high' || data.graphicsQuality === 'low') STAR_CONFIG.graphicsQuality = data.graphicsQuality;
+        if (typeof data.cloudMultiplier === 'number') STAR_CONFIG.cloudMultiplier = data.cloudMultiplier;
+        if (typeof data.minSizePx === 'number') STAR_CONFIG.minSizePx = data.minSizePx;
+        if (typeof data.maxSizePx === 'number') STAR_CONFIG.maxSizePx = data.maxSizePx;
+        if (typeof data.coreRadiusSprite === 'number') STAR_CONFIG.coreRadiusSprite = data.coreRadiusSprite;
+        if (typeof data.bloomOpacity === 'number') STAR_CONFIG.bloomOpacity = data.bloomOpacity;
+        if (typeof data.countDesktop === 'number') STAR_CONFIG.countDesktop = data.countDesktop;
+        if (typeof data.countMobile === 'number') STAR_CONFIG.countMobile = data.countMobile;
+        if (typeof data.skyHeightRatio === 'number') STAR_CONFIG.skyHeightRatio = data.skyHeightRatio;
+      } catch (_) {}
+    }
+
+    function syncSettingsUiState() {
+      const activeCls = 'py-1.5 rounded-xl bg-white/20 text-white shadow transition';
+      const idleCls = 'py-1.5 rounded-xl text-white/65 hover:text-white transition';
+
+      const btnC = document.getElementById('setUnitC');
+      const btnF = document.getElementById('setUnitF');
+      if (btnC) btnC.className = useCelsius ? activeCls : idleCls;
+      if (btnF) btnF.className = !useCelsius ? activeCls : idleCls;
+
+      const btnEN = document.getElementById('setLangEN');
+      const btnTH = document.getElementById('setLangTH');
+      if (btnEN) btnEN.className = currentLang === 'en' ? activeCls : idleCls;
+      if (btnTH) btnTH.className = currentLang === 'th' ? activeCls : idleCls;
+
+      const btnHigh = document.getElementById('setGfxHigh');
+      const btnLow = document.getElementById('setGfxLow');
+      const isLow = STAR_CONFIG.graphicsQuality === 'low';
+      if (btnHigh) btnHigh.className = !isLow ? activeCls : idleCls;
+      if (btnLow) btnLow.className = isLow ? activeCls : idleCls;
+
+      const cloudPct = Math.round((STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0) * 100);
+      const midPx = ((STAR_CONFIG.minSizePx + STAR_CONFIG.maxSizePx) * 0.5).toFixed(1);
+      const coreVal = Number(STAR_CONFIG.coreRadiusSprite).toFixed(1);
+      const bloomPct = Math.round(STAR_CONFIG.bloomOpacity * 100);
+      const countVal = Math.round(STAR_CONFIG.countDesktop);
+      const areaPct = Math.round(STAR_CONFIG.skyHeightRatio * 100);
+
+      const sCloud = document.getElementById('sliderCloudAmt');
+      const sSize = document.getElementById('sliderStarSize');
+      const sCore = document.getElementById('sliderStarCore');
+      const sBloom = document.getElementById('sliderStarBloom');
+      const sCount = document.getElementById('sliderStarCount');
+      const sArea = document.getElementById('sliderStarArea');
+
+      if (sCloud) sCloud.value = cloudPct;
+      if (sSize) sSize.value = midPx;
+      if (sCore) sCore.value = coreVal;
+      if (sBloom) sBloom.value = bloomPct;
+      if (sCount) sCount.value = countVal;
+      if (sArea) sArea.value = areaPct;
+
+      const vCloud = document.getElementById('valCloudAmt');
+      const vSize = document.getElementById('valStarSize');
+      const vCore = document.getElementById('valStarCore');
+      const vBloom = document.getElementById('valStarBloom');
+      const vCount = document.getElementById('valStarCount');
+      const vArea = document.getElementById('valStarArea');
+
+      if (vCloud) vCloud.textContent = `${cloudPct}%`;
+      if (vSize) vSize.textContent = `${midPx} px`;
+      if (vCore) vCore.textContent = coreVal;
+      if (vBloom) vBloom.textContent = `${bloomPct}%`;
+      if (vCount) vCount.textContent = `${countVal}`;
+      if (vArea) vArea.textContent = `${areaPct}%`;
+    }
+
+    function toggleSettingsMenu(e) {
+      if (e) e.stopPropagation();
+      const pop = document.getElementById('appSettingsPopover');
+      const gear = document.getElementById('settingsGearIcon');
+      if (!pop) return;
+      const isOpen = pop.classList.toggle('open');
+      if (gear) gear.style.transform = isOpen ? 'rotate(65deg)' : 'rotate(0deg)';
+      if (isOpen) syncSettingsUiState();
+    }
+
+    function closeSettingsMenu() {
+      const pop = document.getElementById('appSettingsPopover');
+      const gear = document.getElementById('settingsGearIcon');
+      if (pop) pop.classList.remove('open');
+      if (gear) gear.style.transform = 'rotate(0deg)';
+    }
+
+    function toggleAdvancedSettings() {
+      const drawer = document.getElementById('advSettingsDrawer');
+      const chev = document.getElementById('advSettingsChevron');
+      if (!drawer) return;
+      const isOpen = drawer.classList.toggle('open');
+      if (chev) chev.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function setTempUnitPref(celsius) {
+      if (useCelsius === celsius) return;
+      toggleTempUnit();
+      syncSettingsUiState();
+      saveAppSettings();
+    }
+
+    function setLanguagePref(lang) {
+      if (currentLang === lang) return;
+      toggleLanguage();
+      syncSettingsUiState();
+      saveAppSettings();
+    }
+
+    function setGraphicsQuality(mode) {
+      STAR_CONFIG.graphicsQuality = mode === 'low' ? 'low' : 'high';
+      resizeCanvas();
+      syncSettingsUiState();
+      saveAppSettings();
+    }
+
+    function onSkyStarSliderChange() {
+      const sCloud = document.getElementById('sliderCloudAmt');
+      const sSize = document.getElementById('sliderStarSize');
+      const sCore = document.getElementById('sliderStarCore');
+      const sBloom = document.getElementById('sliderStarBloom');
+      const sCount = document.getElementById('sliderStarCount');
+      const sArea = document.getElementById('sliderStarArea');
+
+      if (sCloud) {
+        STAR_CONFIG.cloudMultiplier = Number(sCloud.value) / 100;
+        lastOverlayOpacities.fill(-1);
+        renderSkyOverlays();
+      }
+      if (sSize) {
+        const mid = Number(sSize.value);
+        STAR_CONFIG.minSizePx = Number((mid * 0.76).toFixed(2));
+        STAR_CONFIG.maxSizePx = Number((mid * 1.24).toFixed(2));
+      }
+      if (sCore) {
+        STAR_CONFIG.coreRadiusSprite = Number(sCore.value);
+      }
+      if (sBloom) {
+        STAR_CONFIG.bloomOpacity = Number(sBloom.value) / 100;
+      }
+      if (sCount) {
+        const c = Number(sCount.value);
+        STAR_CONFIG.countDesktop = c;
+        STAR_CONFIG.countMobile = Math.max(20, Math.round(c * 0.66));
+      }
+      if (sArea) {
+        STAR_CONFIG.skyHeightRatio = Number(sArea.value) / 100;
+      }
+
+      window.rebuildStars();
+      syncSettingsUiState();
+      saveAppSettings();
+    }
+
+    function resetSkyStarDefaults() {
+      STAR_CONFIG.cloudMultiplier = 1.0;
+      STAR_CONFIG.minSizePx = 2.8;
+      STAR_CONFIG.maxSizePx = 4.6;
+      STAR_CONFIG.coreRadiusSprite = 9.0;
+      STAR_CONFIG.bloomOpacity = 0.36;
+      STAR_CONFIG.countDesktop = 175;
+      STAR_CONFIG.countMobile = 115;
+      STAR_CONFIG.skyHeightRatio = 0.38;
+      lastOverlayOpacities.fill(-1);
+      renderSkyOverlays();
+      window.rebuildStars();
+      syncSettingsUiState();
+      saveAppSettings();
+    }
+
+    document.addEventListener('click', (e) => {
+      const wrap = document.getElementById('settingsMenuWrap');
+      if (wrap && !wrap.contains(e.target)) {
+        closeSettingsMenu();
+      }
+    });
+
     function toggleTempUnit() {
       useCelsius = !useCelsius;
       const btn = document.getElementById('unitToggleBtn');
@@ -4122,6 +4570,8 @@
         setWeatherTheme(currentMode, false);
       }
       setMapOverlayMode(mapOverlayMode);
+      syncSettingsUiState();
+      saveAppSettings();
     }
 
     function toggleLanguage() {
@@ -4136,6 +4586,8 @@
         setWeatherTheme(currentMode, false);
       }
       setMapOverlayMode(mapOverlayMode);
+      syncSettingsUiState();
+      saveAppSettings();
     }
 
     function useMyLocation() {
@@ -4412,6 +4864,7 @@
     });
 
     window.onload = function () {
+      loadAppSettings();
       setupCanvas();
       applyStaticTranslations();
       renderHourly(WEATHER_THEMES.rainy.hourly);
