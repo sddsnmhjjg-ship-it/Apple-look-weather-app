@@ -436,16 +436,6 @@
     <!-- Background Lightning Bolt & Distant Rain Canvas (Behind Clouds/Mist & Behind All UI Cards) -->
     <canvas id="lightningCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
 
-    <!-- Hardware-Accelerated SVG Unsharp-Mask Filter for Crisp Cloud Outer Tips/Edges -->
-    <svg width="0" height="0" class="absolute pointer-events-none" aria-hidden="true">
-      <defs>
-        <filter id="cloudEdgeSharpenFilter" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
-          <feGaussianBlur id="cloudEdgeSharpenBlur" in="SourceGraphic" stdDeviation="3.2" result="cloudBlur" />
-          <feComposite id="cloudUnsharpComposite" in="SourceGraphic" in2="cloudBlur" operator="arithmetic" k1="0" k2="2.2" k3="-1.2" k4="0" />
-        </filter>
-      </defs>
-    </svg>
-
     <!-- Authentic Apple Weather Misty Stratus, Cumulus & Cirrus Cloud Layers (Upper Sky Only) -->
     <img id="vfxStratusImg" src="apple-weather-assets/vfx_stratus_000_day.webp" alt=""
          onerror="this.style.display='none'"
@@ -1429,20 +1419,20 @@
           float baseField = cloudMacro * 0.62 + cloudDetail * 0.38;
           float rawDensity = smoothstep(1.0 - cov, 0.86 - uStormFactor * 0.08, baseField);
 
-          // Outer-perimeter sharpening: modifies ONLY the outer boundary around the cloud (rawDensity < 0.62) and joins seamlessly at 0.62
-          float sharp = clamp(uCloudSharpness, 0.30, 1.50);
-          float outerMask = smoothstep(0.01, 0.16, rawDensity) * smoothstep(0.62, 0.34, rawDensity);
+          // Outer-perimeter sharpening: runs ONLY on the thin outer ring (0.01 < rawDensity < 0.62); skips empty sky & cloud interior for 0 GPU overhead
           float shapedDensity = rawDensity;
           float edgeRimBoost = 0.0;
 
-          if (rawDensity < 0.62) {
+          if (rawDensity > 0.01 && rawDensity < 0.62) {
+            float sharp = clamp(uCloudSharpness, 0.30, 1.50);
             if (sharp < 0.85) {
               float softAmt = clamp((0.85 - sharp) / 0.55, 0.0, 1.0);
               float softOuter = 0.62 * pow(clamp(rawDensity / 0.62, 0.0, 1.0), 0.58);
               shapedDensity = mix(rawDensity, softOuter, softAmt);
             } else {
+              float outerMask = smoothstep(0.01, 0.16, rawDensity) * smoothstep(0.62, 0.34, rawDensity);
               float crispAmt = clamp((sharp - 0.85) / 0.65, 0.0, 1.0);
-              float tipWisps = fbmMist(p * 9.5 + windB * 1.25);
+              float tipWisps = noise(p * 9.5 + windB * 1.25);
               float dPerturbed = rawDensity + (tipWisps - 0.47) * 0.22 * crispAmt * outerMask;
               float edgeLow = 0.21 * crispAmt;
               float edgeHigh = 0.62 - 0.26 * crispAmt;
@@ -2896,17 +2886,17 @@
       }, { passive: true });
     }
 
-    function resizeCloudRenderTarget() {
+    let cloudResizeDebounceTimer = null;
+
+    function applyCloudCanvasResolution() {
       if (!cloudCanvas) return;
       const isMobile = window.innerWidth < 768;
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
-      const dpr = isLowGfx ? 1 : Math.min(2, window.devicePixelRatio || 1);
       const sharp = Math.max(0.30, Math.min(1.50, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0));
-      const baseScale = isLowGfx ? (isMobile ? 0.38 : 0.50) : (isMobile ? 0.72 : 0.92);
-      const dprBoost = sharp > 1.0 ? (1.0 + (dpr - 1.0) * Math.min(1.0, (sharp - 1.0) * 2.0)) : 1.0;
-      const scale = baseScale * (0.45 + 0.55 * sharp) * dprBoost;
-      const maxW = Math.round((isLowGfx ? 800 : 1920 * dpr) * Math.max(0.55, sharp));
-      const maxH = Math.round((isLowGfx ? 540 : 1200 * dpr) * Math.max(0.55, sharp));
+      const baseScale = isLowGfx ? (isMobile ? 0.38 : 0.50) : (isMobile ? 0.68 : 0.90);
+      const scale = baseScale * (0.60 + 0.40 * Math.min(1.20, sharp));
+      const maxW = Math.round((isLowGfx ? 800 : 1680) * Math.min(1.15, Math.max(0.65, sharp)));
+      const maxH = Math.round((isLowGfx ? 540 : 1080) * Math.min(1.15, Math.max(0.65, sharp)));
       const targetW = Math.min(maxW, Math.max(320, Math.floor(window.innerWidth * scale)));
       const targetH = Math.min(maxH, Math.max(220, Math.floor(window.innerHeight * scale)));
       if (cloudCanvas.width !== targetW || cloudCanvas.height !== targetH) {
@@ -2916,21 +2906,30 @@
           gl.viewport(0, 0, cloudCanvas.width, cloudCanvas.height);
         }
       }
+    }
 
-      // Sharpen ONLY the outer perimeter/tips of the .webp clouds via SVG Unsharp Mask (>101%) or soften via Gaussian blur (<99%)
+    function resizeCloudRenderTarget(immediateBufferResize = false) {
+      if (!cloudCanvas) return;
+      if (immediateBufferResize) {
+        clearTimeout(cloudResizeDebounceTimer);
+        applyCloudCanvasResolution();
+      } else {
+        clearTimeout(cloudResizeDebounceTimer);
+        cloudResizeDebounceTimer = setTimeout(applyCloudCanvasResolution, 80);
+      }
+
+      // 100% GPU-composited outer-edge sharpening for .webp cloud layers (zero offscreen SVG blur pass overhead)
+      const sharp = Math.max(0.30, Math.min(1.50, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0));
       let filterStr = 'none';
-      if (sharp < 0.99) {
-        const blurPx = ((1.0 - sharp) * 5.2).toFixed(2);
+      if (sharp < 0.98) {
+        const blurPx = ((1.0 - sharp) * 4.8).toFixed(2);
         filterStr = `blur(${blurPx}px)`;
-      } else if (sharp > 1.01) {
-        const unsharpNode = document.getElementById('cloudUnsharpComposite');
-        if (unsharpNode) {
-          const edgeGain = (sharp - 1.0) * 4.6; // up to +2.30 outer-edge unsharp gain at 150%
-          unsharpNode.setAttribute('k2', (1.0 + edgeGain).toFixed(2));
-          unsharpNode.setAttribute('k3', (-edgeGain).toFixed(2));
-          // Include subtle brightness token so the browser compositor re-evaluates url(#cloudEdgeSharpenFilter) on every slider step
-          filterStr = `url(#cloudEdgeSharpenFilter) brightness(${(1.0 + (sharp - 1.0) * 0.02).toFixed(4)})`;
-        }
+      } else if (sharp > 1.02) {
+        // Paired brightness(<1) + contrast(>1) trims faint outer haze to 0.0 on mix-blend-screen while keeping inner cloud luminance constant
+        const crisp = (sharp - 1.0) / 0.50;
+        const b = (1.0 - crisp * 0.14).toFixed(3);
+        const c = (1.0 + crisp * 0.44).toFixed(3);
+        filterStr = `brightness(${b}) contrast(${c})`;
       }
       for (let i = 0; i < 3; i++) {
         const el = cloudOverlayElements[i];
@@ -2942,7 +2941,7 @@
 
     function resizeCanvas() {
       if (!cloudCanvas || !fxCanvas) return;
-      resizeCloudRenderTarget();
+      resizeCloudRenderTarget(true);
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
 
       if (lightningCanvas) {
