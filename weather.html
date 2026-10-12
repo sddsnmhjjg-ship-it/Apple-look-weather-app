@@ -572,7 +572,7 @@
                       class="w-full flex items-center justify-between py-1.5 px-2 rounded-xl hover:bg-white/10 transition text-xs font-semibold text-sky-200">
                 <span class="flex items-center space-x-1.5">
                   <i data-lucide="sparkles" class="w-3.5 h-3.5 text-sky-300"></i>
-                  <span id="setLblAdvancedBtn">Advanced Sky &amp; Star Tuning</span>
+                  <span id="setLblAdvancedBtn">Advance</span>
                 </span>
                 <i data-lucide="chevron-down" id="advSettingsChevron" class="w-4 h-4 text-white/70 transition-transform duration-300"></i>
               </button>
@@ -587,6 +587,16 @@
                     </div>
                     <input id="sliderCloudAmt" type="range" min="0" max="150" step="5" value="100"
                            oninput="onSkyStarSliderChange('cloud')" class="ios-slider" />
+                  </div>
+
+                  <!-- Cloud Render Sharpness -->
+                  <div>
+                    <div class="flex justify-between text-[11px] font-medium text-white/85 mb-1">
+                      <span id="setLblCloudSharp">Cloud Render Sharpness</span>
+                      <span id="valCloudSharp" class="text-sky-300 font-semibold">100%</span>
+                    </div>
+                    <input id="sliderCloudSharp" type="range" min="30" max="150" step="5" value="100"
+                           oninput="onSkyStarSliderChange('cloudSharp')" class="ios-slider" />
                   </div>
 
                   <!-- Star Pixel Size -->
@@ -1340,6 +1350,7 @@
       uniform float uHorizonWarmth;
       uniform float uEveningFactor;
       uniform float uLightningIntensity;
+      uniform float uCloudSharpness;
 
       float hash(vec2 p) {
         p = fract(p * vec2(123.34, 456.21));
@@ -1399,16 +1410,21 @@
         if (uv.y > 0.48 - stormExpand && uCloudAmount > 0.01) {
           vec2 windA = uCloudOffsetA;
           vec2 windB = uCloudOffsetB;
+          float sharp = clamp(uCloudSharpness, 0.30, 1.50);
+          float detailFreq = mix(3.3, 6.4, clamp((sharp - 0.30) / 1.20, 0.0, 1.0));
 
           float cloudMacro = fbmMist(p * 2.4 + windA);
-          float cloudDetail = fbmMist(p * 4.8 + windB + cloudMacro * 0.65);
+          float cloudDetail = fbmMist(p * detailFreq + windB + cloudMacro * 0.65);
 
           float verticalMask = smoothstep(0.54 - stormExpand, 0.76 - stormExpand * 0.5, uv.y) * smoothstep(1.03, 0.89, uv.y);
           float cov = clamp(uCoverage + 0.18 + uStormFactor * 0.08, 0.35, 0.96);
-          float density = smoothstep(1.0 - cov, 0.86 - uStormFactor * 0.08, (cloudMacro * 0.62 + cloudDetail * 0.38)) * verticalMask * uCloudAmount;
+          float detailWeight = clamp(0.38 + (sharp - 1.0) * 0.20, 0.16, 0.54);
+          float edgeHigh = clamp(0.86 - uStormFactor * 0.08 - (sharp - 1.0) * 0.24, (1.0 - cov) + 0.08, 1.08);
+          float density = smoothstep(1.0 - cov, edgeHigh, (cloudMacro * (1.0 - detailWeight) + cloudDetail * detailWeight)) * verticalMask * uCloudAmount;
           density = clamp(density * (1.0 + uStormFactor * 0.26), 0.0, 1.0);
 
-          float topRim = smoothstep(0.35, 0.78, cloudDetail);
+          float rimHigh = clamp(0.78 - (sharp - 1.0) * 0.26, 0.44, 0.96);
+          float topRim = smoothstep(0.35, rimHigh, cloudDetail);
           vec3 bright = mix(uCloudBright, vec3(1.0, 0.74, 0.55), uHorizonWarmth * 0.16);
           vec3 cloudColor = mix(uCloudShadow, uCloudMid, smoothstep(0.15, 0.65, cloudMacro));
           cloudColor = mix(cloudColor, bright, topRim * (0.78 - uStormFactor * 0.22));
@@ -1508,7 +1524,7 @@
         'uCloudBright', 'uCloudMid', 'uCloudShadow',
         'uCoverage', 'uStormFactor', 'uNightFactor',
         'uCloudAmount', 'uMistAmount', 'uHorizonWarmth', 'uEveningFactor',
-        'uLightningIntensity'
+        'uLightningIntensity', 'uCloudSharpness'
       ];
       uniformNames.forEach(name => {
         glUniforms[name] = gl.getUniformLocation(glProgram, name);
@@ -1534,6 +1550,7 @@
       countMobile: 115,      // จำนวนดาวบนมือถือ
       skyHeightRatio: 0.38,  // ขอบเขตความสูงของพื้นที่ดาวจากด้านบนจอ (0.38 = กินพื้นที่ 38% บนสุดของจอ)
       cloudMultiplier: 1.0,  // ปริมาณเมฆ (0.0 = ปิดเมฆ, 1.0 = ปกติ 100%, 1.5 = เมฆหนา 150%)
+      cloudSharpness: 1.0,   // ความคมชัดของการเรนเดอร์เมฆ (0.3 = นุ่มเบลอประหยัด GPU, 1.0 = ปกติ, 1.5 = คมชัดสูง)
       graphicsQuality: 'high'// 'high' (คมชัดสูง) หรือ 'low' (ประหยัดพลังงานสำหรับเครื่องสเปกต่ำ)
     };
     window.STAR_CONFIG = STAR_CONFIG;
@@ -2440,6 +2457,7 @@
         gl.uniform1f(glUniforms.uHorizonWarmth, renderState.horizonWarmth);
         gl.uniform1f(glUniforms.uEveningFactor, renderState.eveningFactor);
         gl.uniform1f(glUniforms.uLightningIntensity, lightningIntensity);
+        gl.uniform1f(glUniforms.uCloudSharpness, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
@@ -2847,19 +2865,41 @@
       }, { passive: true });
     }
 
-    function resizeCanvas() {
-      if (!cloudCanvas || !fxCanvas) return;
-      // Apple Weather Half-Resolution Volumetric Sky Render Target:
-      // Clouds and atmospheric gradients are soft low-frequency signals, so rendering at ~0.55x resolution
-      // with hardware bilinear upscaling looks 100% identical while cutting mobile GPU fragment load by ~70%.
+    function resizeCloudRenderTarget() {
+      if (!cloudCanvas) return;
       const isMobile = window.innerWidth < 768;
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
-      const scale = isLowGfx ? (isMobile ? 0.36 : 0.48) : (isMobile ? 0.52 : 0.72);
-      cloudCanvas.width = Math.min(isLowGfx ? 720 : 1080, Math.max(300, Math.floor(window.innerWidth * scale)));
-      cloudCanvas.height = Math.min(isLowGfx ? 480 : 720, Math.max(220, Math.floor(window.innerHeight * scale)));
-      if (gl) {
-        gl.viewport(0, 0, cloudCanvas.width, cloudCanvas.height);
+      const sharp = Math.max(0.30, Math.min(1.50, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0));
+      const baseScale = isLowGfx ? (isMobile ? 0.36 : 0.48) : (isMobile ? 0.52 : 0.72);
+      const scale = baseScale * sharp;
+      const maxW = Math.round((isLowGfx ? 720 : 1280) * Math.max(0.5, sharp));
+      const maxH = Math.round((isLowGfx ? 480 : 860) * Math.max(0.5, sharp));
+      const targetW = Math.min(maxW, Math.max(200, Math.floor(window.innerWidth * scale)));
+      const targetH = Math.min(maxH, Math.max(140, Math.floor(window.innerHeight * scale)));
+      if (cloudCanvas.width !== targetW || cloudCanvas.height !== targetH) {
+        cloudCanvas.width = targetW;
+        cloudCanvas.height = targetH;
+        if (gl) {
+          gl.viewport(0, 0, cloudCanvas.width, cloudCanvas.height);
+        }
       }
+
+      // Sync sharpness/softness of upper-sky .webp cloud overlays
+      const filterStr = sharp < 0.96
+        ? `blur(${((1.0 - sharp) * 6.5).toFixed(1)}px)`
+        : (sharp > 1.04 ? `contrast(${(1.0 + (sharp - 1.0) * 0.28).toFixed(2)})` : 'none');
+      for (let i = 0; i < 3; i++) {
+        const el = cloudOverlayElements[i];
+        if (el && el.style.filter !== filterStr) {
+          el.style.filter = filterStr;
+        }
+      }
+    }
+
+    function resizeCanvas() {
+      if (!cloudCanvas || !fxCanvas) return;
+      resizeCloudRenderTarget();
+      const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
 
       if (lightningCanvas) {
         const starDpr = isLowGfx ? 1 : Math.min(2, window.devicePixelRatio || 1);
@@ -4270,8 +4310,9 @@
       setTxt('setLblGraphics', th ? 'กราฟิกและประสิทธิภาพ' : 'Graphics & Performance');
       setTxt('setGfxHigh', th ? 'คมชัดสูง (High)' : 'High Quality');
       setTxt('setGfxLow', th ? 'ประหยัดพลังงาน' : 'Battery Saver');
-      setTxt('setLblAdvancedBtn', th ? 'ตั้งค่าเมฆและดวงดาวขั้นสูง' : 'Advanced Sky & Star Tuning');
+      setTxt('setLblAdvancedBtn', th ? 'ขั้นสูง (Advance)' : 'Advance');
       setTxt('setLblCloudAmt', th ? 'ความหนาแน่นของเมฆ' : 'Cloud Amount');
+      setTxt('setLblCloudSharp', th ? 'ความคมชัดของเมฆ (Render)' : 'Cloud Render Sharpness');
       setTxt('setLblStarSize', th ? 'ขนาดดวงดาว (Pixel)' : 'Star Size (Pixels)');
       setTxt('setLblStarCore', th ? 'ขนาดจุดใจกลางดาว' : 'Star Core Pinpoint');
       setTxt('setLblStarBloom', th ? 'แสงฟุ้งรอบดาว (Bloom)' : 'Star Bloom Glow');
@@ -4433,6 +4474,7 @@
           currentLang,
           graphicsQuality: STAR_CONFIG.graphicsQuality,
           cloudMultiplier: STAR_CONFIG.cloudMultiplier,
+          cloudSharpness: STAR_CONFIG.cloudSharpness,
           minSizePx: STAR_CONFIG.minSizePx,
           maxSizePx: STAR_CONFIG.maxSizePx,
           coreRadiusSprite: STAR_CONFIG.coreRadiusSprite,
@@ -4454,6 +4496,7 @@
         if (data.currentLang === 'en' || data.currentLang === 'th') currentLang = data.currentLang;
         if (data.graphicsQuality === 'high' || data.graphicsQuality === 'low') STAR_CONFIG.graphicsQuality = data.graphicsQuality;
         if (typeof data.cloudMultiplier === 'number') STAR_CONFIG.cloudMultiplier = data.cloudMultiplier;
+        if (typeof data.cloudSharpness === 'number') STAR_CONFIG.cloudSharpness = data.cloudSharpness;
         if (typeof data.minSizePx === 'number') STAR_CONFIG.minSizePx = data.minSizePx;
         if (typeof data.maxSizePx === 'number') STAR_CONFIG.maxSizePx = data.maxSizePx;
         if (typeof data.coreRadiusSprite === 'number') STAR_CONFIG.coreRadiusSprite = data.coreRadiusSprite;
@@ -4485,6 +4528,7 @@
       if (btnLow) btnLow.className = isLow ? activeCls : idleCls;
 
       const cloudPct = Math.round((STAR_CONFIG.cloudMultiplier != null ? STAR_CONFIG.cloudMultiplier : 1.0) * 100);
+      const sharpPct = Math.round((STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0) * 100);
       const midPx = ((STAR_CONFIG.minSizePx + STAR_CONFIG.maxSizePx) * 0.5).toFixed(1);
       const coreVal = Number(STAR_CONFIG.coreRadiusSprite).toFixed(1);
       const bloomPct = Math.round(STAR_CONFIG.bloomOpacity * 100);
@@ -4492,6 +4536,7 @@
       const areaPct = Math.round(STAR_CONFIG.skyHeightRatio * 100);
 
       const sCloud = document.getElementById('sliderCloudAmt');
+      const sSharp = document.getElementById('sliderCloudSharp');
       const sSize = document.getElementById('sliderStarSize');
       const sCore = document.getElementById('sliderStarCore');
       const sBloom = document.getElementById('sliderStarBloom');
@@ -4499,6 +4544,7 @@
       const sArea = document.getElementById('sliderStarArea');
 
       if (sCloud) sCloud.value = cloudPct;
+      if (sSharp) sSharp.value = sharpPct;
       if (sSize) sSize.value = midPx;
       if (sCore) sCore.value = coreVal;
       if (sBloom) sBloom.value = bloomPct;
@@ -4506,6 +4552,7 @@
       if (sArea) sArea.value = areaPct;
 
       const vCloud = document.getElementById('valCloudAmt');
+      const vSharp = document.getElementById('valCloudSharp');
       const vSize = document.getElementById('valStarSize');
       const vCore = document.getElementById('valStarCore');
       const vBloom = document.getElementById('valStarBloom');
@@ -4513,6 +4560,7 @@
       const vArea = document.getElementById('valStarArea');
 
       if (vCloud) vCloud.textContent = `${cloudPct}%`;
+      if (vSharp) vSharp.textContent = `${sharpPct}%`;
       if (vSize) vSize.textContent = `${midPx} px`;
       if (vCore) vCore.textContent = coreVal;
       if (vBloom) vBloom.textContent = `${bloomPct}%`;
@@ -4593,6 +4641,7 @@
 
     function onSkyStarSliderChange(mode = 'all') {
       const sCloud = document.getElementById('sliderCloudAmt');
+      const sSharp = document.getElementById('sliderCloudSharp');
       const sSize = document.getElementById('sliderStarSize');
       const sCore = document.getElementById('sliderStarCore');
       const sBloom = document.getElementById('sliderStarBloom');
@@ -4601,6 +4650,9 @@
 
       if (sCloud) {
         STAR_CONFIG.cloudMultiplier = Number(sCloud.value) / 100;
+      }
+      if (sSharp) {
+        STAR_CONFIG.cloudSharpness = Number(sSharp.value) / 100;
       }
       if (sSize) {
         const mid = Number(sSize.value);
@@ -4640,6 +4692,13 @@
           if (m === 'cloud') {
             lastOverlayOpacities.fill(-1);
             renderSkyOverlays();
+          } else if (m === 'cloudSharp') {
+            resizeCloudRenderTarget();
+          } else if (m === 'all') {
+            lastOverlayOpacities.fill(-1);
+            renderSkyOverlays();
+            resizeCloudRenderTarget();
+            window.rebuildStars('all');
           } else {
             window.rebuildStars(m);
           }
@@ -4653,6 +4712,7 @@
 
     function resetSkyStarDefaults() {
       STAR_CONFIG.cloudMultiplier = 1.0;
+      STAR_CONFIG.cloudSharpness = 1.0;
       STAR_CONFIG.minSizePx = 2.8;
       STAR_CONFIG.maxSizePx = 4.6;
       STAR_CONFIG.coreRadiusSprite = 9.0;
@@ -4662,6 +4722,7 @@
       STAR_CONFIG.skyHeightRatio = 0.38;
       lastOverlayOpacities.fill(-1);
       renderSkyOverlays();
+      resizeCloudRenderTarget();
       window.rebuildStars('all');
       syncSettingsUiState();
       saveAppSettings();
