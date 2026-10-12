@@ -415,9 +415,14 @@
             California
           </button>
         </div>
-        <button onclick="toggleTempUnit()" id="unitToggleBtn" title="Switch °C / °F" class="ios-action-btn px-2.5 py-1.5 rounded-full ios-glass text-xs font-bold text-white/90 hover:bg-white/20 shadow-lg">
-          °C
-        </button>
+        <div class="inline-flex items-center rounded-full ios-glass p-0.5 text-xs font-bold text-white/90 shadow-lg divide-x divide-white/15">
+          <button onclick="toggleTempUnit()" id="unitToggleBtn" title="Switch °C / °F" class="ios-action-btn px-2.5 py-1 rounded-l-full hover:bg-white/15 transition">
+            °C
+          </button>
+          <button onclick="toggleLanguage()" id="langToggleBtn" title="Switch Language (EN / TH)" class="ios-action-btn px-2.5 py-1 rounded-r-full text-sky-300 hover:text-white hover:bg-white/15 transition tracking-wide">
+            EN
+          </button>
+        </div>
       </div>
     </header>
 
@@ -477,7 +482,7 @@
       <div class="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-white/70 pb-3 border-b border-white/10">
         <div class="flex items-center space-x-2">
           <i data-lucide="clock" class="w-4 h-4"></i>
-          <span>Hourly Forecast &middot; Next 24 Hours</span>
+          <span id="hourlyTitleSpan">Hourly Forecast &middot; Next 24 Hours</span>
         </div>
         <span id="localTimeSpan" class="text-[11px] normal-case text-white/60">Live Local Time</span>
       </div>
@@ -493,7 +498,7 @@
       <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-white/10">
         <div class="flex items-center space-x-2 text-xs font-medium uppercase tracking-wider text-white/70">
           <i data-lucide="map" class="w-4 h-4 text-sky-300"></i>
-          <span>Weather Map</span>
+          <span id="weatherMapTitleSpan">Weather Map</span>
         </div>
 
         <div class="flex items-center space-x-1.5">
@@ -547,7 +552,7 @@
     <section class="ios-glass rounded-3xl p-4 sm:p-5 mb-5">
       <div class="flex items-center space-x-2 text-xs font-medium uppercase tracking-wider text-white/70 pb-3 border-b border-white/10">
         <i data-lucide="calendar" class="w-4 h-4"></i>
-        <span>10-Day Forecast</span>
+        <span id="tenDayTitleSpan">10-Day Forecast</span>
       </div>
 
       <div id="tenDayContainer" class="divide-y divide-white/10 text-sm font-medium">
@@ -563,7 +568,7 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
             <i data-lucide="sun" class="w-4 h-4"></i>
-            <span>UV Index</span>
+            <span id="uvTitleSpan">UV Index</span>
           </div>
           <p id="uvValue" class="text-3xl font-semibold tracking-tight">4</p>
           <p id="uvLevel" class="text-sm font-medium text-white/90">Moderate</p>
@@ -581,11 +586,11 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-1">
             <i data-lucide="wind" class="w-4 h-4"></i>
-            <span>Wind</span>
+            <span id="windTitleSpan">Wind</span>
           </div>
           <div class="flex items-baseline space-x-1">
             <span id="windSpeed" class="text-3xl font-semibold">9</span>
-            <span class="text-xs font-semibold text-white/75">MPH</span>
+            <span id="windUnitSpan" class="text-xs font-semibold text-white/75">KM/H</span>
           </div>
           <p id="windGusts" class="text-xs text-white/70">NW &middot; Gusts to 14 mph</p>
         </div>
@@ -593,10 +598,10 @@
         <!-- Compass Visual -->
         <div class="relative w-24 h-24 mx-auto flex items-center justify-center my-1">
           <div class="absolute inset-0 rounded-full border border-dashed border-white/20"></div>
-          <span class="absolute top-0 text-[9px] font-bold text-white/50">N</span>
-          <span class="absolute bottom-0 text-[9px] font-bold text-white/50">S</span>
-          <span class="absolute left-1 text-[9px] font-bold text-white/50">W</span>
-          <span class="absolute right-1 text-[9px] font-bold text-white/50">E</span>
+          <span id="compassN" class="absolute top-0 text-[9px] font-bold text-white/50">N</span>
+          <span id="compassS" class="absolute bottom-0 text-[9px] font-bold text-white/50">S</span>
+          <span id="compassW" class="absolute left-1 text-[9px] font-bold text-white/50">W</span>
+          <span id="compassE" class="absolute right-1 text-[9px] font-bold text-white/50">E</span>
           <div id="compassNeedle" class="w-12 h-12 flex items-center justify-center transition-transform duration-700 transform rotate-45">
             <i data-lucide="navigation" class="w-7 h-7 text-sky-400 fill-sky-400"></i>
           </div>
@@ -629,7 +634,7 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
             <i data-lucide="activity" class="w-4 h-4"></i>
-            <span>Air Quality</span>
+            <span id="aqiTitleSpan">Air Quality</span>
           </div>
           <p id="aqiValue" class="text-3xl font-semibold">35</p>
           <p id="aqiLevel" class="text-sm font-medium text-emerald-400">Good</p>
@@ -647,7 +652,7 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
             <i data-lucide="droplets" class="w-4 h-4"></i>
-            <span>Humidity</span>
+            <span id="humidityTitleSpan">Humidity</span>
           </div>
           <p id="humidityValue" class="text-3xl font-semibold">54%</p>
         </div>
@@ -659,7 +664,7 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
             <i data-lucide="thermometer" class="w-4 h-4"></i>
-            <span>Feels Like</span>
+            <span id="feelsLikeTitleSpan">Feels Like</span>
           </div>
           <p id="feelsLikeValue" class="text-3xl font-semibold">74°</p>
         </div>
@@ -671,7 +676,7 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
             <i data-lucide="eye" class="w-4 h-4"></i>
-            <span>Visibility</span>
+            <span id="visibilityTitleSpan">Visibility</span>
           </div>
           <p id="visibilityValue" class="text-3xl font-semibold">10 mi</p>
         </div>
@@ -683,7 +688,7 @@
         <div>
           <div class="flex items-center space-x-1.5 text-xs font-medium uppercase tracking-wider text-white/60 mb-2">
             <i data-lucide="gauge" class="w-4 h-4"></i>
-            <span>Pressure</span>
+            <span id="pressureTitleSpan">Pressure</span>
           </div>
           <p id="pressureValue" class="text-3xl font-semibold">30.04</p>
           <p class="text-xs text-white/60">inHg</p>
@@ -697,8 +702,8 @@
     </section>
 
     <footer class="mt-8 text-center text-xs text-white/50 space-y-1">
-      <p>Real-Time Weather Telemetry &middot; CARTO Spatial Basemaps &middot; WebGL Volumetric Clouds</p>
-      <p class="text-[11px] text-white/35">Click anywhere on the CARTO map or search any city worldwide for live conditions</p>
+      <p id="footerLine1">Real-Time Weather Telemetry &middot; CARTO Spatial Basemaps &middot; WebGL Volumetric Clouds</p>
+      <p id="footerLine2" class="text-[11px] text-white/35">Click anywhere on the CARTO map or search any city worldwide for live conditions</p>
     </footer>
   </div>
 
@@ -999,21 +1004,30 @@
       dotEl.setAttribute('cy', by);
 
       if (latestWeatherData) {
+        const th = typeof currentLang !== 'undefined' && currentLang === 'th';
         const labelEl = document.getElementById('sunEventLabel');
         const iconWrap = document.getElementById('sunEventIconWrap');
         const mainTimeEl = document.getElementById('sunEventTime');
         const subInfoEl = document.getElementById('sunriseInfo');
         if (isDaytime) {
-          if (labelEl) labelEl.textContent = 'Sunset';
+          if (labelEl) labelEl.textContent = th ? 'ดวงอาทิตย์ตก' : 'Sunset';
           if (iconWrap) iconWrap.innerHTML = `<i data-lucide="sunset" class="w-4 h-4"></i>`;
           if (mainTimeEl) mainTimeEl.textContent = latestWeatherData.sunsetStr;
-          if (subInfoEl) subInfoEl.textContent = latestWeatherData.sunriseStr;
+          if (subInfoEl) {
+            subInfoEl.textContent = th
+              ? `ขึ้นพรุ่งนี้: ${latestWeatherData.sunriseOnlyStr || '6:08 AM'}`
+              : latestWeatherData.sunriseStr;
+          }
         } else {
-          if (labelEl) labelEl.textContent = 'Sunrise';
+          if (labelEl) labelEl.textContent = th ? 'ดวงอาทิตย์ขึ้น' : 'Sunrise';
           if (iconWrap) iconWrap.innerHTML = `<i data-lucide="sunrise" class="w-4 h-4"></i>`;
           const nextSr = hour < sr ? (latestWeatherData.sunriseTodayOnlyStr || latestWeatherData.sunriseOnlyStr) : latestWeatherData.sunriseOnlyStr;
           if (mainTimeEl && nextSr) mainTimeEl.textContent = nextSr;
-          if (subInfoEl) subInfoEl.textContent = `Sunset: ${latestWeatherData.sunsetStr}`;
+          if (subInfoEl) {
+            subInfoEl.textContent = th
+              ? `ดวงอาทิตย์ตก: ${latestWeatherData.sunsetStr}`
+              : `Sunset: ${latestWeatherData.sunsetStr}`;
+          }
         }
         lucide.createIcons();
       }
@@ -2513,8 +2527,76 @@
 
     let activePresetKey = 'bangkok';
     let useCelsius = true;
+    let currentLang = 'en'; // 'en' | 'th'
     let activeLocation = { ...PRESET_LOCATIONS.bangkok };
-    let latestWeatherData = null; // Stores raw F/mph values for seamless °F/°C toggling
+    let latestWeatherData = null; // Stores raw F/mph values for seamless °F/°C & EN/TH toggling
+
+    function isTH() {
+      return currentLang === 'th';
+    }
+
+    const CITY_NAME_TH = {
+      'Bangkok': 'กรุงเทพมหานคร',
+      'Tokyo': 'โตเกียว',
+      'California': 'แคลิฟอร์เนีย',
+      'Cupertino': 'คูเปอร์ติโน'
+    };
+
+    function localizeCityName(name) {
+      if (!name) return '';
+      if (!isTH()) return name;
+      return CITY_NAME_TH[name] || name;
+    }
+
+    const CONDITION_TH = {
+      'Clear Sky': 'ท้องฟ้าแจ่มใส',
+      'Clear Night': 'คืนฟ้าโปร่ง',
+      'Mostly Clear': 'ท้องฟ้าโปร่งเป็นส่วนมาก',
+      'Mostly Clear Night': 'คืนฟ้าโปร่งเป็นส่วนมาก',
+      'Mostly Sunny': 'แดดจัดเป็นส่วนมาก',
+      'Partly Cloudy': 'มีเมฆบางส่วน',
+      'Overcast': 'เมฆครึ้ม',
+      'Foggy Conditions': 'มีหมอกปกคลุม',
+      'Light Drizzle': 'ฝนละอองเล็กน้อย',
+      'Light Rain': 'ฝนตกเล็กน้อย',
+      'Moderate Rain': 'ฝนตกปานกลาง',
+      'Heavy Rain': 'ฝนตกหนัก',
+      'Light Snow': 'หิมะตกเล็กน้อย',
+      'Moderate Snow': 'หิมะตกปานกลาง',
+      'Heavy Snow': 'หิมะตกหนัก',
+      'Snow Grains': 'เกล็ดหิมะ',
+      'Light Rain Showers': 'ฝนฟ้าคะนองกระจายเล็กน้อย',
+      'Moderate Rain Showers': 'ฝนฟ้าคะนองปานกลาง',
+      'Heavy Rain Showers': 'ฝนตกหนักเป็นแห่งๆ',
+      'Light Snow Showers': 'หิมะโปรยปราย',
+      'Heavy Snow Showers': 'พายุหิมะตกหนัก',
+      'Thunderstorms': 'พายุฝนฟ้าคะนอง',
+      'Tropical Rain & Mist': 'ฝนเขตร้อนและหมอกบาง',
+      'Clear Night & Moonlit Clouds': 'คืนฟ้าโปร่งและเมฆบาง'
+    };
+
+    function localizeCondition(cond) {
+      if (!cond) return '';
+      if (!isTH()) return cond;
+      return CONDITION_TH[cond] || cond;
+    }
+
+    const DAY_NAME_TH = {
+      'Today': 'วันนี้',
+      'Sun': 'อา.',
+      'Mon': 'จ.',
+      'Tue': 'อ.',
+      'Wed': 'พ.',
+      'Thu': 'พฤ.',
+      'Fri': 'ศ.',
+      'Sat': 'ส.'
+    };
+
+    function localizeDayLabel(dayStr) {
+      if (!dayStr) return '';
+      if (!isTH()) return dayStr;
+      return DAY_NAME_TH[dayStr] || dayStr;
+    }
 
     // Leaflet & CARTO Map State
     let cartoMap = null;
@@ -2667,11 +2749,12 @@
       if (!cartoMap) return;
       const displayTemp = fmtTemp(tempF);
       const unitSymbol = useCelsius ? '°C' : '°F';
+      const localizedCity = localizeCityName(cityName);
 
       const iconHtml = `
         <div class="weather-map-marker">
           <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-          <span>${cityName}</span>
+          <span>${localizedCity}</span>
           <span class="text-sky-300 font-bold">${displayTemp}${unitSymbol}</span>
         </div>
       `;
@@ -2708,7 +2791,7 @@
         }
       } catch (err) {
         const tsEl = document.getElementById('radarTimestamp');
-        if (tsEl) tsEl.textContent = 'LIVE RADAR';
+        if (tsEl) tsEl.textContent = isTH() ? 'เรดาร์สด' : 'LIVE RADAR';
       }
     }
 
@@ -2815,9 +2898,9 @@
         if (radarCtrl) radarCtrl.style.display = 'flex';
         if (legendEl) {
           legendEl.innerHTML = `
-            <span>Light</span>
+            <span>${isTH() ? 'เบา' : 'Light'}</span>
             <div class="w-16 h-1.5 rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 via-yellow-400 to-rose-500"></div>
-            <span>Heavy</span>
+            <span>${isTH() ? 'หนัก' : 'Heavy'}</span>
           `;
         }
       } else {
@@ -2829,15 +2912,15 @@
 
         if (mode === 'temp' && legendEl) {
           legendEl.innerHTML = `
-            <span>Cold</span>
+            <span>${isTH() ? 'เย็น' : 'Cold'}</span>
             <div class="w-20 h-1.5 rounded-full bg-gradient-to-r from-indigo-500 via-sky-400 via-emerald-400 via-amber-400 to-rose-500"></div>
-            <span>Hot</span>
+            <span>${isTH() ? 'ร้อน' : 'Hot'}</span>
           `;
         } else if (mode === 'wind' && legendEl) {
           const spd = latestWeatherData ? fmtSpeed(latestWeatherData.windSpeedMph) : 12;
-          const unit = useCelsius ? 'km/h' : 'mph';
+          const unit = useCelsius ? (isTH() ? 'กม./ชม.' : 'km/h') : (isTH() ? 'ไมล์/ชม.' : 'mph');
           legendEl.innerHTML = `
-            <span class="text-sky-300 font-semibold">Live Streamlines</span>
+            <span class="text-sky-300 font-semibold">${isTH() ? 'กระแสลมสด' : 'Live Streamlines'}</span>
             <span>&middot;</span>
             <span>${spd} ${unit}</span>
           `;
@@ -3080,19 +3163,33 @@
       govAlertResizeTimer = setTimeout(() => resizeWetGlassCards(), 480);
     }
 
+    const SEVERITY_LABEL_TH = {
+      EXTREME: 'รุนแรงมาก',
+      SEVERE: 'รุนแรง',
+      MODERATE: 'ปานกลาง',
+      ADVISORY: 'เฝ้าระวัง'
+    };
+
+    function localizeSeverity(level) {
+      if (!isTH()) return level;
+      return SEVERITY_LABEL_TH[level] || level;
+    }
+
     function buildRegionalGovernmentAlerts(d) {
       if (!d) return [];
       const agency = resolveGovernmentWeatherAgency(d.countryCode, d.timezone);
-      const isThai = d.countryCode === 'TH' || d.timezone === 'Asia/Bangkok';
-      const areaLabel = [d.city, d.region].filter(Boolean).join(', ') || d.city || 'Selected Region';
+      const isThai = isTH();
+      const locCity = localizeCityName(d.city);
+      const areaLabel = [locCity, d.region].filter(Boolean).join(', ') || locCity || (isThai ? 'พื้นที่ที่เลือก' : 'Selected Region');
       const unitSym = useCelsius ? '°C' : '°F';
-      const spdUnit = useCelsius ? 'km/h' : 'mph';
+      const spdUnit = useCelsius ? (isThai ? 'กม./ชม.' : 'km/h') : (isThai ? 'ไมล์/ชม.' : 'mph');
       const curTemp = fmtTemp(d.tempF);
       const feelsTemp = fmtTemp(d.feelsLikeF);
       const lowTemp = fmtTemp(d.lowF);
       const highTemp = fmtTemp(d.highF);
       const windSpd = fmtSpeed(d.windSpeedMph);
       const gustSpd = fmtSpeed(d.windGustsMph);
+      const condLabel = localizeCondition(d.condition);
 
       const alerts = [];
       if (Array.isArray(d.nwsAlerts) && d.nwsAlerts.length > 0) {
@@ -3112,19 +3209,19 @@
           agency,
           level: [96, 99].includes(d.weatherCode) ? 'EXTREME' : 'SEVERE',
           headline: isThai
-            ? 'ประกาศเตือนพายุฝนฟ้าคะนองและลมกระโชกแรง (Thunderstorm Warning)'
+            ? 'ประกาศเตือนพายุฝนฟ้าคะนองและลมกระโชกแรง'
             : 'Severe Thunderstorm & Lightning Warning',
-          sourceTag: 'Official Regional Warning',
+          sourceTag: isThai ? 'ประกาศเตือนภัยระดับภูมิภาค' : 'Official Regional Warning',
           summary: isThai
             ? `พื้นที่ ${areaLabel} มีกลุ่มเมฆพายุฝนฟ้าคะนองและลมกระโชกแรง (${gustSpd} ${spdUnit}) โปรดระวังอันตรายจากฟ้าผ่าและน้ำท่วมขังฉับพลัน`
             : `Active convective thunderstorm cells detected across ${areaLabel} with gusts reaching ${gustSpd} ${spdUnit} and frequent cloud-to-ground lightning.`,
           description: isThai
-            ? `กรมอุตุนิยมวิทยาแจ้งเตือนสภาพอากาศแปรปรวนในเขต ${areaLabel} อุณหภูมิปัจจุบัน ${curTemp}${unitSym} ความชื้นสัมพัทธ์ ${d.humidity}% มีโอกาสเกิดฝนฟ้าคะนองรุนแรงและลมกระโชกแรงในช่วง 6–12 ชั่วโมงข้างหน้า`
+            ? `ระบบตรวจวัดสภาพอากาศแจ้งเตือนสภาพอากาศแปรปรวนในเขต ${areaLabel} อุณหภูมิปัจจุบัน ${curTemp}${unitSym} ความชื้นสัมพัทธ์ ${d.humidity}% มีโอกาสเกิดฝนฟ้าคะนองรุนแรงและลมกระโชกแรงในช่วง 6–12 ชั่วโมงข้างหน้า`
             : `Regional meteorological telemetry indicates unstable atmospheric conditions across ${areaLabel} (${curTemp}${unitSym}, ${d.humidity}% RH) capable of producing intense downpours, sudden wind gusts up to ${gustSpd} ${spdUnit}, and lightning strikes.`,
           instruction: isThai
             ? 'หลีกเลี่ยงการอยู่ในที่โล่งแจ้ง ใต้ต้นไม้ใหญ่ หรือใกล้ป้ายโฆษณาที่ไม่แข็งแรง และระมัดระวังการสัญจรบนถนนที่ลื่น'
             : 'Seek shelter indoors immediately when thunder is heard. Avoid open fields, tall isolated trees, and flooded low-lying roadways.',
-          effectiveWindow: 'Active Now · Next 12 Hours'
+          effectiveWindow: isThai ? 'มีผลขณะนี้ · 12 ชั่วโมงข้างหน้า' : 'Active Now · Next 12 Hours'
         });
       }
 
@@ -3134,9 +3231,9 @@
           agency,
           level: 'SEVERE',
           headline: isThai
-            ? 'ประกาศเตือนฝนตกหนักถึงหนักมากและน้ำท่วมฉับพลัน (Heavy Rain Warning)'
+            ? 'ประกาศเตือนฝนตกหนักถึงหนักมากและน้ำท่วมฉับพลัน'
             : 'Heavy Rainfall & Urban Flood Warning',
-          sourceTag: 'Official Regional Warning',
+          sourceTag: isThai ? 'ประกาศเตือนภัยระดับภูมิภาค' : 'Official Regional Warning',
           summary: isThai
             ? `ตรวจพบกลุ่มฝนตกหนักในเขต ${areaLabel} (โอกาสเกิดฝน ${d.maxPop24h || 85}%) ขอให้ระวังน้ำท่วมขังและทัศนวิสัยการมองเห็นลดลง`
             : `Heavy precipitation bands moving across ${areaLabel} with ${d.maxPop24h || 85}% precipitation probability and reduced roadway visibility.`,
@@ -3146,7 +3243,7 @@
           instruction: isThai
             ? 'เพิ่มความระมัดระวังในการขับขี่และหลีกเลี่ยงเส้นทางที่มีน้ำท่วมขัง'
             : 'Allow extra travel time, reduce driving speed on wet pavement, and avoid underpasses prone to rapid water accumulation.',
-          effectiveWindow: 'Active Now · Next 12–24 Hours'
+          effectiveWindow: isThai ? 'มีผลขณะนี้ · 12–24 ชั่วโมงข้างหน้า' : 'Active Now · Next 12–24 Hours'
         });
       }
 
@@ -3156,30 +3253,42 @@
         alerts.push({
           agency,
           level: isHeavySnow ? 'SEVERE' : 'MODERATE',
-          headline: isHeavySnow
-            ? 'Winter Storm & Heavy Snowfall Warning'
-            : 'Snowfall & Wintry Precipitation Advisory',
-          sourceTag: 'Official Regional Warning',
-          summary: `Wintry precipitation and snow showers affecting ${areaLabel} at ${curTemp}${unitSym} (Feels like ${feelsTemp}${unitSym}). Slippery surfaces expected.`,
-          description: `Sub-freezing boundary layer temperatures (${curTemp}${unitSym}, overnight low ${lowTemp}${unitSym}) combined with passing wintry bands across ${areaLabel} will produce snow accumulation and localized ice on untreated bridges and roads.`,
-          instruction: 'Use winter tires or chains where required, maintain safe following distances, and dress in insulated windproof layers.',
-          effectiveWindow: 'Active Now · Next 12–24 Hours'
+          headline: isThai
+            ? (isHeavySnow ? 'ประกาศเตือนพายุหิมะและหิมะตกหนัก' : 'พยากรณ์แจ้งเตือนหิมะและสภาพอากาศหนาวจัด')
+            : (isHeavySnow ? 'Winter Storm & Heavy Snowfall Warning' : 'Snowfall & Wintry Precipitation Advisory'),
+          sourceTag: isThai ? 'ประกาศเตือนภัยระดับภูมิภาค' : 'Official Regional Warning',
+          summary: isThai
+            ? `มีหิมะตกและหยาดน้ำฟ้าเยือกแข็งในพื้นที่ ${areaLabel} อุณหภูมิ ${curTemp}${unitSym} (รู้สึกเหมือน ${feelsTemp}${unitSym}) โปรดระวังพื้นผิวถนนลื่น`
+            : `Wintry precipitation and snow showers affecting ${areaLabel} at ${curTemp}${unitSym} (Feels like ${feelsTemp}${unitSym}). Slippery surfaces expected.`,
+          description: isThai
+            ? `มวลอากาศเย็นจัด (${curTemp}${unitSym}, ต่ำสุดกลางคืน ${lowTemp}${unitSym}) ร่วมกับกลุ่มหิมะที่เคลื่อนผ่านพื้นที่ ${areaLabel} อาจทำให้มีหิมะสะสมและน้ำแข็งเกาะบนสะพานและพื้นถนน`
+            : `Sub-freezing boundary layer temperatures (${curTemp}${unitSym}, overnight low ${lowTemp}${unitSym}) combined with passing wintry bands across ${areaLabel} will produce snow accumulation and localized ice on untreated bridges and roads.`,
+          instruction: isThai
+            ? 'สวมใส่เสื้อผ้ากันหนาวหลายชั้น ขับขี่ด้วยความระมัดระวัง และเว้นระยะห่างให้ปลอดภัย'
+            : 'Use winter tires or chains where required, maintain safe following distances, and dress in insulated windproof layers.',
+          effectiveWindow: isThai ? 'มีผลขณะนี้ · 12–24 ชั่วโมงข้างหน้า' : 'Active Now · Next 12–24 Hours'
         });
       }
 
-      // 4. Sub-Zero / Frost & Freeze Advisory (e.g., 0°C / <= 34°F like Newfoundland & Labrador)
+      // 4. Sub-Zero / Frost & Freeze Advisory
       if (d.tempF <= 34 || d.lowF <= 32) {
         alerts.push({
           agency,
           level: (d.tempF <= 20 || d.lowF <= 18) ? 'SEVERE' : 'MODERATE',
-          headline: (d.tempF <= 20 || d.lowF <= 18)
-            ? 'Hard Freeze & Wind Chill Warning'
-            : 'Frost & Sub-Zero Freeze Advisory',
-          sourceTag: 'Official Regional Advisory',
-          summary: `Sub-zero / freezing temperatures across ${areaLabel} (Current: ${curTemp}${unitSym} · Low: ${lowTemp}${unitSym} · Wind chill: ${feelsTemp}${unitSym}).`,
-          description: `Cold air mass settled over ${areaLabel} is maintaining temperatures near or below freezing (${curTemp}${unitSym}, overnight low ${lowTemp}${unitSym}) with winds at ${windSpd} ${spdUnit} (gusts to ${gustSpd} ${spdUnit}). Black ice may form on exposed roadways and bridges.`,
-          instruction: 'Exercise caution on potentially icy walkways and roads, protect exposed water pipes, and limit prolonged outdoor exposure.',
-          effectiveWindow: 'Active Now · Overnight & Early Morning'
+          headline: isThai
+            ? ((d.tempF <= 20 || d.lowF <= 18) ? 'ประกาศเตือนอากาศหนาวจัดถึงจุดเยือกแข็งและลมหนาว' : 'ประกาศเฝ้าระวังน้ำค้างแข็งและอุณหภูมิต่ำกว่าจุดเยือกแข็ง')
+            : ((d.tempF <= 20 || d.lowF <= 18) ? 'Hard Freeze & Wind Chill Warning' : 'Frost & Sub-Zero Freeze Advisory'),
+          sourceTag: isThai ? 'ประกาศเฝ้าระวังระดับภูมิภาค' : 'Official Regional Advisory',
+          summary: isThai
+            ? `อุณหภูมิต่ำใกล้หรือต่ำกว่าจุดเยือกแข็งในพื้นที่ ${areaLabel} (ปัจจุบัน: ${curTemp}${unitSym} · ต่ำสุด: ${lowTemp}${unitSym} · รู้สึกเหมือน: ${feelsTemp}${unitSym})`
+            : `Sub-zero / freezing temperatures across ${areaLabel} (Current: ${curTemp}${unitSym} · Low: ${lowTemp}${unitSym} · Wind chill: ${feelsTemp}${unitSym}).`,
+          description: isThai
+            ? `มวลอากาศหนาวปกคลุมพื้นที่ ${areaLabel} ทำให้อุณหภูมิลดต่ำ (${curTemp}${unitSym}, ต่ำสุด ${lowTemp}${unitSym}) ลมความเร็ว ${windSpd} ${spdUnit} (ลมกระโชก ${gustSpd} ${spdUnit})`
+            : `Cold air mass settled over ${areaLabel} is maintaining temperatures near or below freezing (${curTemp}${unitSym}, overnight low ${lowTemp}${unitSym}) with winds at ${windSpd} ${spdUnit} (gusts to ${gustSpd} ${spdUnit}). Black ice may form on exposed roadways and bridges.`,
+          instruction: isThai
+            ? 'ระมัดระวังทางเดินและถนนที่มีน้ำแข็งเกาะ รักษาความอบอุ่นของร่างกาย และหลีกเลี่ยงการอยู่ในที่หนาวจัดเป็นเวลานาน'
+            : 'Exercise caution on potentially icy walkways and roads, protect exposed water pipes, and limit prolonged outdoor exposure.',
+          effectiveWindow: isThai ? 'มีผลขณะนี้ · ช่วงกลางคืนถึงเช้าตรู่' : 'Active Now · Overnight & Early Morning'
         });
       }
 
@@ -3190,19 +3299,19 @@
           agency,
           level: isExtremeHeat ? 'SEVERE' : 'MODERATE',
           headline: isThai
-            ? 'ประกาศเตือนสภาพอากาศร้อนจัดและดัชนีความร้อนสูง (Heat Index Advisory)'
+            ? 'ประกาศเตือนสภาพอากาศร้อนจัดและดัชนีความร้อนสูง'
             : (isExtremeHeat ? 'Excessive Heat Warning' : 'Heat & High Humidity Advisory'),
-          sourceTag: 'Official Regional Advisory',
+          sourceTag: isThai ? 'ประกาศเฝ้าระวังระดับภูมิภาค' : 'Official Regional Advisory',
           summary: isThai
             ? `พื้นที่ ${areaLabel} มีอุณหภูมิสูง ${curTemp}${unitSym} (ความรู้สึกร้อนเหมือน ${feelsTemp}${unitSym} · สูงสุด ${highTemp}${unitSym}) โปรดระวังโรคลมแดด (Heatstroke)`
             : `Elevated thermal index across ${areaLabel} with apparent temperature reaching ${feelsTemp}${unitSym} (High: ${highTemp}${unitSym}, Humidity: ${d.humidity}%).`,
           description: isThai
-            ? `กรมอุตุนิยมวิทยาแจ้งเตือนค่าดัชนีความร้อน (Heat Index) ในเขต ${areaLabel} อยู่ในเกณฑ์เฝ้าระวัง (${feelsTemp}${unitSym}) ร่วมกับความชื้นสัมพัทธ์ ${d.humidity}%`
+            ? `แจ้งเตือนค่าดัชนีความร้อน (Heat Index) ในเขต ${areaLabel} อยู่ในเกณฑ์เฝ้าระวัง (${feelsTemp}${unitSym}) ร่วมกับความชื้นสัมพัทธ์ ${d.humidity}%`
             : `High solar insolation and ${d.humidity}% relative humidity across ${areaLabel} are pushing the apparent heat index to ${feelsTemp}${unitSym}. Prolonged outdoor exertion may lead to heat exhaustion.`,
           instruction: isThai
             ? 'ดื่มน้ำสะอาดบ่อยๆ สวมเสื้อผ้าระบายอากาศได้ดี และลดกิจกรรมกลางแจ้งในช่วงเที่ยงถึงบ่าย'
             : 'Stay hydrated, take frequent cooling breaks in shaded or air-conditioned spaces, and check on vulnerable individuals.',
-          effectiveWindow: 'Active Today · Peak Daytime Hours'
+          effectiveWindow: isThai ? 'มีผลวันนี้ · ช่วงบ่ายที่มีแดดจัด' : 'Active Today · Peak Daytime Hours'
         });
       }
 
@@ -3211,29 +3320,43 @@
         alerts.push({
           agency,
           level: d.windGustsMph >= 45 ? 'SEVERE' : 'MODERATE',
-          headline: d.windGustsMph >= 45 ? 'High Wind & Gale Warning' : 'Strong Wind Gust Advisory',
-          sourceTag: 'Official Regional Advisory',
-          summary: `Sustained winds of ${windSpd} ${spdUnit} with gusts up to ${gustSpd} ${spdUnit} recorded across ${areaLabel}.`,
-          description: `Tightened pressure gradient (${(d.pressureHpa * 0.02953).toFixed(2)} inHg / ${Math.round(d.pressureHpa)} hPa) across ${areaLabel} is producing gusty surface winds up to ${gustSpd} ${spdUnit}.`,
-          instruction: 'Secure loose outdoor objects, use caution when driving high-profile vehicles, and stay clear of swaying tree limbs.',
-          effectiveWindow: 'Active Now · Next 12 Hours'
+          headline: isThai
+            ? (d.windGustsMph >= 45 ? 'ประกาศเตือนพายุลมแรงจัด' : 'ประกาศเฝ้าระวังลมกระโชกแรง')
+            : (d.windGustsMph >= 45 ? 'High Wind & Gale Warning' : 'Strong Wind Gust Advisory'),
+          sourceTag: isThai ? 'ประกาศเฝ้าระวังระดับภูมิภาค' : 'Official Regional Advisory',
+          summary: isThai
+            ? `ตรวจพบลมแรงต่อเนื่อง ${windSpd} ${spdUnit} และลมกระโชกสูงสุด ${gustSpd} ${spdUnit} ในพื้นที่ ${areaLabel}`
+            : `Sustained winds of ${windSpd} ${spdUnit} with gusts up to ${gustSpd} ${spdUnit} recorded across ${areaLabel}.`,
+          description: isThai
+            ? `ความต่างของความกดอากาศ (${(d.pressureHpa * 0.02953).toFixed(2)} inHg / ${Math.round(d.pressureHpa)} hPa) ในเขต ${areaLabel} ทำให้เกิดลมกระโชกแรงถึง ${gustSpd} ${spdUnit}`
+            : `Tightened pressure gradient (${(d.pressureHpa * 0.02953).toFixed(2)} inHg / ${Math.round(d.pressureHpa)} hPa) across ${areaLabel} is producing gusty surface winds up to ${gustSpd} ${spdUnit}.`,
+          instruction: isThai
+            ? 'ยึดสิ่งของกลางแจ้งให้มั่นคง ขับขี่ยานพาหนะด้วยความระมัดระวัง และหลีกเลี่ยงการอยู่ใกล้กิ่งไม้ใหญ่'
+            : 'Secure loose outdoor objects, use caution when driving high-profile vehicles, and stay clear of swaying tree limbs.',
+          effectiveWindow: isThai ? 'มีผลขณะนี้ · 12 ชั่วโมงข้างหน้า' : 'Active Now · Next 12 Hours'
         });
       }
 
       // 7. Dense Fog / Low Visibility Advisory
       if (hasFog || d.visMiles <= 3) {
-        const visStr = useCelsius ? `${Math.round(d.visMiles * 1.609)} km` : `${d.visMiles} mi`;
+        const visStr = useCelsius ? `${Math.round(d.visMiles * 1.609)} ${isThai ? 'กม.' : 'km'}` : `${d.visMiles} ${isThai ? 'ไมล์' : 'mi'}`;
         alerts.push({
           agency,
           level: d.visMiles <= 1 ? 'SEVERE' : 'MODERATE',
           headline: isThai
-            ? 'ประกาศเตือนหมอกหนาและทัศนวิสัยต่ำ (Dense Fog Advisory)'
+            ? 'ประกาศเตือนหมอกหนาและทัศนวิสัยต่ำ'
             : 'Dense Fog & Low Visibility Advisory',
-          sourceTag: 'Official Regional Advisory',
-          summary: `Visibility reduced to ${visStr} across ${areaLabel} (${d.humidity}% humidity). Use low-beam headlights when driving.`,
-          description: `Near-saturated surface air (${d.humidity}% RH, dew point ${fmtTemp(d.dewPointF)}${unitSym}) is causing localized fog banks and reduced horizontal visibility across ${areaLabel}.`,
-          instruction: 'Reduce driving speed, use low-beam headlights or fog lamps, and increase following distance.',
-          effectiveWindow: 'Active Now'
+          sourceTag: isThai ? 'ประกาศเฝ้าระวังระดับภูมิภาค' : 'Official Regional Advisory',
+          summary: isThai
+            ? `ทัศนวิสัยลดลงเหลือ ${visStr} ในเขต ${areaLabel} (ความชื้น ${d.humidity}%) โปรดเปิดไฟหน้ารถขณะขับขี่`
+            : `Visibility reduced to ${visStr} across ${areaLabel} (${d.humidity}% humidity). Use low-beam headlights when driving.`,
+          description: isThai
+            ? `มวลอากาศชื้นใกล้จุดอิ่มตัว (${d.humidity}% RH, จุดน้ำค้าง ${fmtTemp(d.dewPointF)}${unitSym}) ทำให้เกิดหมอกปกคลุมและทัศนวิสัยลดลงในพื้นที่ ${areaLabel}`
+            : `Near-saturated surface air (${d.humidity}% RH, dew point ${fmtTemp(d.dewPointF)}${unitSym}) is causing localized fog banks and reduced horizontal visibility across ${areaLabel}.`,
+          instruction: isThai
+            ? 'ลดความเร็วในการขับขี่ เปิดไฟต่ำหรือไฟตัดหมอก และเพิ่มระยะห่างจากรถคันหน้า'
+            : 'Reduce driving speed, use low-beam headlights or fog lamps, and increase following distance.',
+          effectiveWindow: isThai ? 'มีผลขณะนี้' : 'Active Now'
         });
       }
 
@@ -3245,37 +3368,39 @@
           headline: isThai
             ? `ประกาศแจ้งเตือนคุณภาพอากาศและฝุ่นละออง (US AQI ${d.usAqi})`
             : `Air Quality & Particulate Health Advisory (AQI ${d.usAqi})`,
-          sourceTag: 'Official Environmental Alert',
+          sourceTag: isThai ? 'ประกาศเตือนคุณภาพสิ่งแวดล้อม' : 'Official Environmental Alert',
           summary: isThai
             ? `ดัชนีคุณภาพอากาศในเขต ${areaLabel} อยู่ที่ US AQI ${d.usAqi} กลุ่มเสี่ยงควรลดเวลาทำกิจกรรมกลางแจ้ง`
             : `Elevated particulate matter detected in ${areaLabel} (US AQI ${d.usAqi}). Sensitive groups should limit prolonged outdoor exertion.`,
-          description: `Real-time atmospheric air quality monitoring for ${areaLabel} reports a US AQI of ${d.usAqi}. Stagnant boundary layer dispersion may keep particulate levels elevated.`,
+          description: isThai
+            ? `ผลการตรวจวัดคุณภาพอากาศแบบเรียลไทม์ในเขต ${areaLabel} รายงานค่า US AQI ที่ ${d.usAqi} การสะสมตัวของฝุ่นละอองในชั้นบรรยากาศอาจส่งผลต่อระบบทางเดินหายใจ`
+            : `Real-time atmospheric air quality monitoring for ${areaLabel} reports a US AQI of ${d.usAqi}. Stagnant boundary layer dispersion may keep particulate levels elevated.`,
           instruction: isThai
             ? 'สวมหน้ากากป้องกันฝุ่น PM2.5 เมื่อออกนอกอาคาร และหลีกเลี่ยงการออกกำลังกายกลางแจ้งเป็นเวลานาน'
             : 'Sensitive individuals should reduce intense outdoor activities and consider wearing a high-filtration mask outdoors.',
-          effectiveWindow: 'Active Today · Live Air Quality Feed'
+          effectiveWindow: isThai ? 'มีผลวันนี้ · ข้อมูลคุณภาพอากาศสด' : 'Active Today · Live Air Quality Feed'
         });
       }
 
-      // 9. Active Rain / Storm Watch (only when actively raining or high rain probability >= 70%)
+      // 9. Active Rain / Storm Watch
       if (!hasThunder && !hasHeavyRain && (hasLightModRain || (d.maxPop24h && d.maxPop24h >= 70))) {
         alerts.push({
           agency,
           level: 'ADVISORY',
           headline: isThai
-            ? 'พยากรณ์แจ้งเตือนกลุ่มฝนและอากาศชื้นในพื้นที่ (Regional Rain Advisory)'
+            ? 'พยากรณ์แจ้งเตือนกลุ่มฝนและอากาศชื้นในพื้นที่'
             : 'Regional Rain & Wet Pavement Advisory',
-          sourceTag: 'Official Regional Advisory',
+          sourceTag: isThai ? 'ประกาศเฝ้าระวังระดับภูมิภาค' : 'Official Regional Advisory',
           summary: isThai
-            ? `พื้นที่ ${areaLabel} มีฝนฟ้าคะนองกระจาย/ฝนปรอย (${d.condition}) โอกาสเกิดฝน ${d.maxPop24h || 65}% อุณหภูมิ ${curTemp}${unitSym}`
+            ? `พื้นที่ ${areaLabel} มีฝนฟ้าคะนองกระจาย/ฝนปรอย (${condLabel}) โอกาสเกิดฝน ${d.maxPop24h || 65}% อุณหภูมิ ${curTemp}${unitSym}`
             : `Passing rain showers (${d.condition}) across ${areaLabel} with ${d.maxPop24h || 65}% precipitation probability and ${d.humidity}% humidity.`,
           description: isThai
-            ? `กรมอุตุนิยมวิทยารายงานสภาพอากาศในเขต ${areaLabel} มีเมฆมากและมีฝนตกในพื้นที่ ความชื้นสัมพัทธ์ ${d.humidity}% ลมความเร็ว ${windSpd} ${spdUnit}`
+            ? `รายงานสภาพอากาศในเขต ${areaLabel} มีเมฆมากและมีฝนตกในพื้นที่ ความชื้นสัมพัทธ์ ${d.humidity}% ลมความเร็ว ${windSpd} ${spdUnit}`
             : `Regional radar and telemetry indicate intermittent rain showers moving through ${areaLabel} (${curTemp}${unitSym}, dew point ${fmtTemp(d.dewPointF)}${unitSym}). Wet road surfaces expected.`,
           instruction: isThai
             ? 'พกร่มหรือเสื้อกันฝนเมื่อเดินทาง และระมัดระวังถนนลื่น'
             : 'Carry rain gear and allow extra braking distance on wet roadways.',
-          effectiveWindow: 'Active Now · Next 24 Hours'
+          effectiveWindow: isThai ? 'มีผลขณะนี้ · 24 ชั่วโมงข้างหน้า' : 'Active Now · Next 24 Hours'
         });
       }
 
@@ -3351,7 +3476,7 @@
       const moreBadge = document.getElementById('govAlertMoreBadge');
       if (moreBadge) {
         if (alerts.length > 1) {
-          moreBadge.textContent = `+${alerts.length - 1} More`;
+          moreBadge.textContent = isTH() ? `+อีก ${alerts.length - 1} รายการ` : `+${alerts.length - 1} More`;
           moreBadge.classList.remove('hidden');
         } else {
           moreBadge.classList.add('hidden');
@@ -3361,7 +3486,7 @@
       const sevBadge = document.getElementById('govAlertSeverityBadge');
       if (sevBadge) {
         sevBadge.className = `text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${st.pill}`;
-        sevBadge.textContent = primary.level;
+        sevBadge.textContent = localizeSeverity(primary.level);
       }
 
       const headlineEl = document.getElementById('govAlertHeadline');
@@ -3373,6 +3498,7 @@
       const summaryEl = document.getElementById('govAlertSummary');
       if (summaryEl) summaryEl.textContent = primary.summary;
 
+      const safetyGuidanceTitle = isTH() ? 'คำแนะนำเพื่อความปลอดภัย:' : 'Safety Guidance:';
       const detailsPanel = document.getElementById('govAlertDetailsPanel');
       if (detailsPanel) {
         detailsPanel.innerHTML = alerts.map((item, idx) => {
@@ -3381,7 +3507,7 @@
             <div class="${idx > 0 ? 'pt-3 border-t border-white/10' : ''} space-y-1.5">
               <div class="flex flex-wrap items-center justify-between gap-1">
                 <div class="flex items-center space-x-2">
-                  <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${itemSt.pill}">${item.level}</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${itemSt.pill}">${localizeSeverity(item.level)}</span>
                   <span class="font-semibold text-white/95">${item.headline}</span>
                 </div>
                 <span class="text-[10px] text-white/55 font-mono">${item.effectiveWindow}</span>
@@ -3389,7 +3515,7 @@
               <p class="text-white/80 leading-relaxed">${item.description}</p>
               <div class="flex items-start space-x-2 bg-white/5 rounded-2xl p-2.5 border border-white/10 text-white/85">
                 <i data-lucide="info" class="w-3.5 h-3.5 text-sky-300 mt-0.5 flex-shrink-0"></i>
-                <span><strong class="text-white">Safety Guidance:</strong> ${item.instruction}</span>
+                <span><strong class="text-white">${safetyGuidanceTitle}</strong> ${item.instruction}</span>
               </div>
             </div>
           `;
@@ -3445,11 +3571,13 @@
       const tempEl = document.getElementById('currentTemp');
       const condEl = document.getElementById('weatherCondition');
       const hlEl = document.getElementById('highLowSpan');
-      if (titleEl && heroData.city !== undefined) titleEl.textContent = heroData.city;
+      if (titleEl && heroData.city !== undefined) titleEl.textContent = localizeCityName(heroData.city);
       if (tempEl && heroData.tempF !== undefined) tempEl.textContent = fmtTemp(heroData.tempF);
-      if (condEl && heroData.condition !== undefined) condEl.textContent = heroData.condition;
+      if (condEl && heroData.condition !== undefined) condEl.textContent = localizeCondition(heroData.condition);
       if (hlEl && heroData.highF !== undefined && heroData.lowF !== undefined) {
-        hlEl.innerHTML = `H: ${fmtTemp(heroData.highF)}° &nbsp;L: ${fmtTemp(heroData.lowF)}°`;
+        hlEl.innerHTML = isTH()
+          ? `สูงสุด: ${fmtTemp(heroData.highF)}° &nbsp;ต่ำสุด: ${fmtTemp(heroData.lowF)}°`
+          : `H: ${fmtTemp(heroData.highF)}° &nbsp;L: ${fmtTemp(heroData.lowF)}°`;
       }
     }
 
@@ -3742,9 +3870,59 @@
       updatePresetButtonHighlight();
     }
 
+    function applyStaticTranslations() {
+      const th = isTH();
+      const langBtn = document.getElementById('langToggleBtn');
+      if (langBtn) langBtn.textContent = th ? 'TH' : 'EN';
+
+      const btnBkk = document.getElementById('btn-bangkok');
+      const btnTyo = document.getElementById('btn-tokyo');
+      const btnCal = document.getElementById('btn-california');
+      if (btnBkk) btnBkk.textContent = th ? 'กรุงเทพฯ' : 'Bangkok';
+      if (btnTyo) btnTyo.textContent = th ? 'โตเกียว' : 'Tokyo';
+      if (btnCal) btnCal.textContent = th ? 'แคลิฟอร์เนีย' : 'California';
+
+      const searchIn = document.getElementById('citySearchInput');
+      if (searchIn) searchIn.placeholder = th ? 'ค้นหาชื่อเมือง หรือคลิกบนแผนที่...' : 'Search any city or click map...';
+
+      const setTxt = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      };
+
+      setTxt('hourlyTitleSpan', th ? 'พยากรณ์รายชั่วโมง · 24 ชั่วโมงข้างหน้า' : 'Hourly Forecast · Next 24 Hours');
+      setTxt('weatherMapTitleSpan', th ? 'แผนที่สภาพอากาศ' : 'Weather Map');
+      setTxt('map-btn-radar', th ? 'เรดาร์' : 'Radar');
+      setTxt('map-btn-temp', th ? 'อุณหภูมิ' : 'Temp');
+      setTxt('map-btn-wind', th ? 'ลม' : 'Wind');
+      setTxt('tenDayTitleSpan', th ? 'พยากรณ์ล่วงหน้า 10 วัน' : '10-Day Forecast');
+      setTxt('uvTitleSpan', th ? 'ดัชนี UV' : 'UV Index');
+      setTxt('windTitleSpan', th ? 'ลม' : 'Wind');
+      setTxt('windUnitSpan', useCelsius ? (th ? 'กม./ชม.' : 'KM/H') : (th ? 'ไมล์/ชม.' : 'MPH'));
+      setTxt('compassN', th ? 'น.' : 'N');
+      setTxt('compassS', th ? 'ต.' : 'S');
+      setTxt('compassW', th ? 'ต.ต.' : 'W');
+      setTxt('compassE', th ? 'อ.' : 'E');
+      setTxt('aqiTitleSpan', th ? 'คุณภาพอากาศ' : 'Air Quality');
+      setTxt('humidityTitleSpan', th ? 'ความชื้น' : 'Humidity');
+      setTxt('feelsLikeTitleSpan', th ? 'รู้สึกเหมือน' : 'Feels Like');
+      setTxt('visibilityTitleSpan', th ? 'ทัศนวิสัย' : 'Visibility');
+      setTxt('pressureTitleSpan', th ? 'ความกดอากาศ' : 'Pressure');
+      setTxt('pressureTrend', th ? 'คงที่' : 'Steady');
+      setTxt('footerLine1', th ? 'ข้อมูลสภาพอากาศแบบเรียลไทม์ · แผนที่ CARTO · เมฆสามมิติ WebGL' : 'Real-Time Weather Telemetry · CARTO Spatial Basemaps · WebGL Volumetric Clouds');
+      setTxt('footerLine2', th ? 'คลิกตำแหน่งใดก็ได้บนแผนที่ CARTO หรือค้นหาชื่อเมืองทั่วโลกเพื่อดูสภาพอากาศสด' : 'Click anywhere on the CARTO map or search any city worldwide for live conditions');
+
+      requestAnimationFrame(() => {
+        updatePresetButtonHighlight();
+        const activeMapBtn = document.getElementById(`map-btn-${mapOverlayMode}`);
+        positionSegmentedSlider('mapLayerSlider', activeMapBtn);
+      });
+    }
+
     function renderLiveDomWidgets() {
       if (!latestWeatherData) return;
       const d = latestWeatherData;
+      const th = isTH();
 
       applyHeroWeatherWithBlurTransition({
         city: d.city,
@@ -3753,7 +3931,7 @@
         highF: d.highF,
         lowF: d.lowF
       });
-      document.getElementById('coordsSubtitle').textContent = `${Math.abs(d.lat).toFixed(2)}°${d.lat >= 0 ? 'N' : 'S'}, ${Math.abs(d.lon).toFixed(2)}°${d.lon >= 0 ? 'E' : 'W'} · CARTO Live Telemetry`;
+      document.getElementById('coordsSubtitle').textContent = `${Math.abs(d.lat).toFixed(2)}°${d.lat >= 0 ? 'N' : 'S'}, ${Math.abs(d.lon).toFixed(2)}°${d.lon >= 0 ? 'E' : 'W'} · ${th ? 'ข้อมูลสด CARTO' : 'CARTO Live Telemetry'}`;
 
       // Local Time in Hourly Header
       const localTimeEl = document.getElementById('localTimeSpan');
@@ -3774,29 +3952,47 @@
       if (aqiBarEl) aqiBarEl.style.width = `${Math.min(100, Math.max(8, (d.usAqi / 200) * 100))}%`;
       if (aqiLvlEl && aqiDescEl) {
         if (d.usAqi <= 50) {
-          aqiLvlEl.textContent = 'Good';
-          aqiDescEl.textContent = `Air quality index is ${d.usAqi}, which is clean and ideal for outdoor activities.`;
+          aqiLvlEl.textContent = th ? 'ดี' : 'Good';
+          aqiDescEl.textContent = th
+            ? `ดัชนีคุณภาพอากาศอยู่ที่ ${d.usAqi} อากาศสะอาดเหมาะสำหรับกิจกรรมกลางแจ้ง`
+            : `Air quality index is ${d.usAqi}, which is clean and ideal for outdoor activities.`;
         } else if (d.usAqi <= 100) {
-          aqiLvlEl.textContent = 'Moderate';
-          aqiDescEl.textContent = `Air quality index is ${d.usAqi}. Unusually sensitive individuals should limit prolonged exertion.`;
+          aqiLvlEl.textContent = th ? 'ปานกลาง' : 'Moderate';
+          aqiDescEl.textContent = th
+            ? `ดัชนีคุณภาพอากาศอยู่ที่ ${d.usAqi} ผู้ที่แพ้ง่ายควรลดการออกแรงกลางแจ้งเป็นเวลานาน`
+            : `Air quality index is ${d.usAqi}. Unusually sensitive individuals should limit prolonged exertion.`;
         } else {
-          aqiLvlEl.textContent = 'Elevated';
-          aqiDescEl.textContent = `Air quality index is ${d.usAqi}. Consider reducing prolonged outdoor exertion.`;
+          aqiLvlEl.textContent = th ? 'เริ่มมีผลกระทบ' : 'Elevated';
+          aqiDescEl.textContent = th
+            ? `ดัชนีคุณภาพอากาศอยู่ที่ ${d.usAqi} ควรลดเวลาการทำกิจกรรมกลางแจ้งเป็นเวลานาน`
+            : `Air quality index is ${d.usAqi}. Consider reducing prolonged outdoor exertion.`;
         }
       }
 
       // UV Widget
       document.getElementById('uvValue').textContent = d.uv;
-      const uvLevel = d.uv <= 2 ? 'Low' : d.uv <= 5 ? 'Moderate' : d.uv <= 7 ? 'High' : 'Very High';
+      const uvLevel = d.uv <= 2
+        ? (th ? 'ต่ำ' : 'Low')
+        : d.uv <= 5
+          ? (th ? 'ปานกลาง' : 'Moderate')
+          : d.uv <= 7
+            ? (th ? 'สูง' : 'High')
+            : (th ? 'สูงมาก' : 'Very High');
       document.getElementById('uvLevel').textContent = uvLevel;
       document.getElementById('uvDot').style.left = `${Math.min(95, Math.max(4, (d.uv / 11) * 100))}%`;
-      document.getElementById('uvDescription').textContent = d.uv <= 2 ? 'No sun protection required.' : 'Use sun protection during peak daylight hours.';
+      document.getElementById('uvDescription').textContent = d.uv <= 2
+        ? (th ? 'ไม่จำเป็นต้องใช้อุปกรณ์กันแดด' : 'No sun protection required.')
+        : (th ? 'ควรทาครีมกันแดดหรือสวมหมวกในช่วงแดดจัด' : 'Use sun protection during peak daylight hours.');
 
       // Wind Widget
-      const speedUnit = useCelsius ? 'km/h' : 'mph';
+      const speedUnit = useCelsius ? (th ? 'กม./ชม.' : 'km/h') : (th ? 'ไมล์/ชม.' : 'mph');
+      const windUnitEl = document.getElementById('windUnitSpan');
+      if (windUnitEl) windUnitEl.textContent = useCelsius ? (th ? 'กม./ชม.' : 'KM/H') : (th ? 'ไมล์/ชม.' : 'MPH');
       document.getElementById('windSpeed').textContent = fmtSpeed(d.windSpeedMph);
       const compassStr = degToCompass(d.windDir);
-      document.getElementById('windGusts').textContent = `${compassStr} · Gusts to ${fmtSpeed(d.windGustsMph)} ${speedUnit}`;
+      document.getElementById('windGusts').textContent = th
+        ? `${compassStr} · ลมกระโชกสูงสุด ${fmtSpeed(d.windGustsMph)} ${speedUnit}`
+        : `${compassStr} · Gusts to ${fmtSpeed(d.windGustsMph)} ${speedUnit}`;
       document.getElementById('compassNeedle').style.transform = `rotate(${d.windDir}deg)`;
 
       // Sun & Humidity & Feels Like & Visibility & Pressure
@@ -3804,9 +4000,21 @@
       document.getElementById('sunriseInfo').textContent = d.sunriseStr;
       updateSolarArcWidget();
       document.getElementById('feelsLikeValue').textContent = `${fmtTemp(d.feelsLikeF)}°`;
+      const feelsDescEl = document.getElementById('feelsLikeDesc');
+      if (feelsDescEl) {
+        feelsDescEl.textContent = th ? 'ใกล้เคียงกับอุณหภูมิจริง' : 'Similar to the actual temperature.';
+      }
       document.getElementById('humidityValue').textContent = `${d.humidity}%`;
-      document.getElementById('dewPointText').textContent = `The dew point is ${fmtTemp(d.dewPointF)}° right now.`;
-      document.getElementById('visibilityValue').textContent = useCelsius ? `${Math.round(d.visMiles * 1.609)} km` : `${d.visMiles} mi`;
+      document.getElementById('dewPointText').textContent = th
+        ? `จุดน้ำค้างอยู่ที่ ${fmtTemp(d.dewPointF)}° ในขณะนี้`
+        : `The dew point is ${fmtTemp(d.dewPointF)}° right now.`;
+      document.getElementById('visibilityValue').textContent = useCelsius
+        ? `${Math.round(d.visMiles * 1.609)} ${th ? 'กม.' : 'km'}`
+        : `${d.visMiles} ${th ? 'ไมล์' : 'mi'}`;
+      const visDescEl = document.getElementById('visibilityDesc');
+      if (visDescEl) {
+        visDescEl.textContent = th ? 'ทัศนวิสัยการมองเห็นชัดเจนดีมาก' : 'Perfect atmospheric clarity.';
+      }
 
       const pressEl = document.getElementById('pressureValue');
       if (pressEl) {
@@ -3836,6 +4044,21 @@
       } else {
         setWeatherTheme(currentMode, false);
       }
+      setMapOverlayMode(mapOverlayMode);
+    }
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'th' : 'en';
+      applyStaticTranslations();
+      triggerMorphAnimation(['cityTitle', 'weatherCondition', 'highLowSpan', 'hourlyContainer', 'tenDayContainer']);
+
+      if (latestWeatherData) {
+        renderLiveDomWidgets();
+        updateMapMarker(latestWeatherData.lat, latestWeatherData.lon, latestWeatherData.city, latestWeatherData.tempF, latestWeatherData.condition);
+      } else {
+        setWeatherTheme(currentMode, false);
+      }
+      setMapOverlayMode(mapOverlayMode);
     }
 
     function useMyLocation() {
@@ -3879,13 +4102,13 @@
 
         debounceTimer = setTimeout(async () => {
           try {
-            const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`);
+            const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=${currentLang}&format=json`);
             if (!res.ok) return;
             const data = await res.json();
             const results = data.results || [];
 
             if (results.length === 0) {
-              dropdown.innerHTML = `<div class="px-4 py-3 text-xs text-white/60">No matching cities found</div>`;
+              dropdown.innerHTML = `<div class="px-4 py-3 text-xs text-white/60">${isTH() ? 'ไม่พบชื่อเมืองที่ค้นหา' : 'No matching cities found'}</div>`;
               dropdown.classList.remove('hidden');
               return;
             }
@@ -3938,15 +4161,19 @@
 
     function renderHourly(items) {
       const container = document.getElementById('hourlyContainer');
-      container.innerHTML = items.map(item => `
+      const th = isTH();
+      container.innerHTML = items.map(item => {
+        const displayTime = (item.time === 'Now' && th) ? 'ตอนนี้' : item.time;
+        return `
         <div class="flex flex-col items-center flex-shrink-0 space-y-3">
-          <span class="text-xs font-medium text-white/80">${item.time}</span>
+          <span class="text-xs font-medium text-white/80">${displayTime}</span>
           <div class="h-6 flex items-center justify-center">
             <i data-lucide="${item.icon}" class="w-5 h-5 text-amber-300 drop-shadow"></i>
           </div>
           <span class="text-base font-semibold tracking-tight">${item.temp}°</span>
         </div>
-      `).join('');
+      `;
+      }).join('');
       lucide.createIcons();
     }
 
@@ -3954,6 +4181,7 @@
       const container = document.getElementById('tenDayContainer');
       const items = tenDayData.map(d => ({
         ...d,
+        dayLabel: localizeDayLabel(d.day),
         min: fmtTemp(d.minF !== undefined ? d.minF : d.min),
         max: fmtTemp(d.maxF !== undefined ? d.maxF : d.max)
       }));
@@ -3970,7 +4198,7 @@
 
         return `
           <div class="flex items-center justify-between py-2.5">
-            <span class="w-16 text-sm font-semibold text-white/90">${item.day}</span>
+            <span class="w-16 text-sm font-semibold text-white/90">${item.dayLabel}</span>
             
             <div class="w-12 flex items-center justify-center space-x-1">
               <i data-lucide="${item.icon}" class="w-5 h-5 text-amber-300"></i>
@@ -4004,6 +4232,7 @@
       const theme = WEATHER_THEMES[themeKey];
       const presetLoc = activePresetKey ? PRESET_LOCATIONS[activePresetKey] : PRESET_LOCATIONS.bangkok;
       activeLocation = { ...presetLoc };
+      const th = isTH();
 
       pendingFallbackHeroData = {
         city: presetLoc.name,
@@ -4014,16 +4243,18 @@
       };
 
       // Update Hero Metrics with unit conversion only when not currently mid blur-fade-out
-      document.getElementById('coordsSubtitle').textContent = `${Math.abs(presetLoc.lat).toFixed(2)}°N, ${Math.abs(presetLoc.lon).toFixed(2)}°${presetLoc.lon >= 0 ? 'E' : 'W'} · ${presetLoc.name.toUpperCase()} PRESET`;
+      document.getElementById('coordsSubtitle').textContent = `${Math.abs(presetLoc.lat).toFixed(2)}°N, ${Math.abs(presetLoc.lon).toFixed(2)}°${presetLoc.lon >= 0 ? 'E' : 'W'} · ${th ? 'ข้อมูลสด CARTO' : presetLoc.name.toUpperCase() + ' PRESET'}`;
       if (!isHeroTransitioning) {
         writeHeroWeatherDom(pendingFallbackHeroData);
       }
 
       // Update Widgets
       document.getElementById('uvValue').textContent = theme.uv;
-      document.getElementById('uvLevel').textContent = theme.uvText;
+      document.getElementById('uvLevel').textContent = th ? (theme.uv <= 2 ? 'ต่ำ' : 'ปานกลาง') : theme.uvText;
       document.getElementById('uvDot').style.left = theme.uvPct;
-      document.getElementById('uvDescription').textContent = theme.uvDesc;
+      document.getElementById('uvDescription').textContent = th
+        ? (theme.uv <= 2 ? 'ไม่จำเป็นต้องใช้อุปกรณ์กันแดด' : 'ควรทาครีมกันแดดหรือสวมหมวกในช่วงแดดจัด')
+        : theme.uvDesc;
       document.getElementById('windSpeed').textContent = fmtSpeed(theme.wind);
       document.getElementById('windGusts').textContent = theme.windGusts;
       document.getElementById('compassNeedle').style.transform = `rotate(${theme.windDir}deg)`;
@@ -4031,7 +4262,9 @@
       document.getElementById('sunriseInfo').textContent = theme.sunriseInfo;
       document.getElementById('feelsLikeValue').textContent = `${fmtTemp(theme.feelsLike)}°`;
       document.getElementById('humidityValue').textContent = theme.humidity;
-      document.getElementById('dewPointText').textContent = theme.dewPoint;
+      document.getElementById('dewPointText').textContent = th
+        ? `จุดน้ำค้างอยู่ที่ ${fmtTemp(theme.temp - 6)}° ในขณะนี้`
+        : theme.dewPoint;
       document.getElementById('visibilityValue').textContent = theme.visibility;
 
       // Update Hourly Scroll Row (Calculate Next 24 Hours dynamically)
@@ -4103,6 +4336,7 @@
 
     window.onload = function () {
       setupCanvas();
+      applyStaticTranslations();
       renderHourly(WEATHER_THEMES.rainy.hourly);
       renderTenDay();
       lucide.createIcons();
