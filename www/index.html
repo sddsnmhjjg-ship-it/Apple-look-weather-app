@@ -436,6 +436,16 @@
     <!-- Background Lightning Bolt & Distant Rain Canvas (Behind Clouds/Mist & Behind All UI Cards) -->
     <canvas id="lightningCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
 
+    <!-- Hardware-Accelerated SVG Unsharp-Mask Filter for Crisp Cloud Outer Tips/Edges -->
+    <svg width="0" height="0" class="absolute pointer-events-none" aria-hidden="true">
+      <defs>
+        <filter id="cloudEdgeSharpenFilter" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+          <feGaussianBlur id="cloudEdgeSharpenBlur" in="SourceGraphic" stdDeviation="3.2" result="cloudBlur" />
+          <feComposite id="cloudUnsharpComposite" in="SourceGraphic" in2="cloudBlur" operator="arithmetic" k1="0" k2="2.2" k3="-1.2" k4="0" />
+        </filter>
+      </defs>
+    </svg>
+
     <!-- Authentic Apple Weather Misty Stratus, Cumulus & Cirrus Cloud Layers (Upper Sky Only) -->
     <img id="vfxStratusImg" src="apple-weather-assets/vfx_stratus_000_day.webp" alt=""
          onerror="this.style.display='none'"
@@ -1416,10 +1426,36 @@
 
           float verticalMask = smoothstep(0.54 - stormExpand, 0.76 - stormExpand * 0.5, uv.y) * smoothstep(1.03, 0.89, uv.y);
           float cov = clamp(uCoverage + 0.18 + uStormFactor * 0.08, 0.35, 0.96);
-          float density = smoothstep(1.0 - cov, 0.86 - uStormFactor * 0.08, (cloudMacro * 0.62 + cloudDetail * 0.38)) * verticalMask * uCloudAmount;
+          float baseField = cloudMacro * 0.62 + cloudDetail * 0.38;
+          float rawDensity = smoothstep(1.0 - cov, 0.86 - uStormFactor * 0.08, baseField);
+
+          // Outer-perimeter sharpening: modifies ONLY the outer boundary around the cloud (rawDensity < 0.62) and joins seamlessly at 0.62
+          float sharp = clamp(uCloudSharpness, 0.30, 1.50);
+          float outerMask = smoothstep(0.01, 0.16, rawDensity) * smoothstep(0.62, 0.34, rawDensity);
+          float shapedDensity = rawDensity;
+          float edgeRimBoost = 0.0;
+
+          if (rawDensity < 0.62) {
+            if (sharp < 0.85) {
+              float softAmt = clamp((0.85 - sharp) / 0.55, 0.0, 1.0);
+              float softOuter = 0.62 * pow(clamp(rawDensity / 0.62, 0.0, 1.0), 0.58);
+              shapedDensity = mix(rawDensity, softOuter, softAmt);
+            } else {
+              float crispAmt = clamp((sharp - 0.85) / 0.65, 0.0, 1.0);
+              float tipWisps = fbmMist(p * 9.5 + windB * 1.25);
+              float dPerturbed = rawDensity + (tipWisps - 0.47) * 0.22 * crispAmt * outerMask;
+              float edgeLow = 0.21 * crispAmt;
+              float edgeHigh = 0.62 - 0.26 * crispAmt;
+              float crispOuter = 0.62 * smoothstep(edgeLow, edgeHigh, dPerturbed);
+              shapedDensity = mix(rawDensity, crispOuter, crispAmt);
+              edgeRimBoost = crispAmt * outerMask * smoothstep(0.28, 0.66, tipWisps) * 0.42;
+            }
+          }
+
+          float density = shapedDensity * verticalMask * uCloudAmount;
           density = clamp(density * (1.0 + uStormFactor * 0.26), 0.0, 1.0);
 
-          float topRim = smoothstep(0.35, 0.78, cloudDetail);
+          float topRim = clamp(smoothstep(0.35, 0.78, cloudDetail) + edgeRimBoost, 0.0, 1.0);
           vec3 bright = mix(uCloudBright, vec3(1.0, 0.74, 0.55), uHorizonWarmth * 0.16);
           vec3 cloudColor = mix(uCloudShadow, uCloudMid, smoothstep(0.15, 0.65, cloudMacro));
           cloudColor = mix(cloudColor, bright, topRim * (0.78 - uStormFactor * 0.22));
@@ -2452,6 +2488,7 @@
         gl.uniform1f(glUniforms.uHorizonWarmth, renderState.horizonWarmth);
         gl.uniform1f(glUniforms.uEveningFactor, renderState.eveningFactor);
         gl.uniform1f(glUniforms.uLightningIntensity, lightningIntensity);
+        gl.uniform1f(glUniforms.uCloudSharpness, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
@@ -2863,11 +2900,13 @@
       if (!cloudCanvas) return;
       const isMobile = window.innerWidth < 768;
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
+      const dpr = isLowGfx ? 1 : Math.min(2, window.devicePixelRatio || 1);
       const sharp = Math.max(0.30, Math.min(1.50, STAR_CONFIG.cloudSharpness != null ? STAR_CONFIG.cloudSharpness : 1.0));
-      const baseScale = isLowGfx ? (isMobile ? 0.38 : 0.50) : (isMobile ? 0.65 : 0.90);
-      const scale = baseScale * (0.65 + 0.35 * sharp);
-      const maxW = Math.round((isLowGfx ? 800 : 1680) * Math.max(0.65, sharp));
-      const maxH = Math.round((isLowGfx ? 540 : 1080) * Math.max(0.65, sharp));
+      const baseScale = isLowGfx ? (isMobile ? 0.38 : 0.50) : (isMobile ? 0.72 : 0.92);
+      const dprBoost = sharp > 1.0 ? (1.0 + (dpr - 1.0) * Math.min(1.0, (sharp - 1.0) * 2.0)) : 1.0;
+      const scale = baseScale * (0.45 + 0.55 * sharp) * dprBoost;
+      const maxW = Math.round((isLowGfx ? 800 : 1920 * dpr) * Math.max(0.55, sharp));
+      const maxH = Math.round((isLowGfx ? 540 : 1200 * dpr) * Math.max(0.55, sharp));
       const targetW = Math.min(maxW, Math.max(320, Math.floor(window.innerWidth * scale)));
       const targetH = Math.min(maxH, Math.max(220, Math.floor(window.innerHeight * scale)));
       if (cloudCanvas.width !== targetW || cloudCanvas.height !== targetH) {
@@ -2878,10 +2917,21 @@
         }
       }
 
-      // Keep .webp cloud tips razor-crisp at >=75% sharpness; only soften when user explicitly lowers sharpness (<75%)
-      const filterStr = sharp < 0.75
-        ? `blur(${((0.75 - sharp) * 6.0).toFixed(1)}px)`
-        : 'none';
+      // Sharpen ONLY the outer perimeter/tips of the .webp clouds via SVG Unsharp Mask (>101%) or soften via Gaussian blur (<99%)
+      let filterStr = 'none';
+      if (sharp < 0.99) {
+        const blurPx = ((1.0 - sharp) * 5.2).toFixed(2);
+        filterStr = `blur(${blurPx}px)`;
+      } else if (sharp > 1.01) {
+        const unsharpNode = document.getElementById('cloudUnsharpComposite');
+        if (unsharpNode) {
+          const edgeGain = (sharp - 1.0) * 4.6; // up to +2.30 outer-edge unsharp gain at 150%
+          unsharpNode.setAttribute('k2', (1.0 + edgeGain).toFixed(2));
+          unsharpNode.setAttribute('k3', (-edgeGain).toFixed(2));
+          // Include subtle brightness token so the browser compositor re-evaluates url(#cloudEdgeSharpenFilter) on every slider step
+          filterStr = `url(#cloudEdgeSharpenFilter) brightness(${(1.0 + (sharp - 1.0) * 0.02).toFixed(4)})`;
+        }
+      }
       for (let i = 0; i < 3; i++) {
         const el = cloudOverlayElements[i];
         if (el && el.style.filter !== filterStr) {
