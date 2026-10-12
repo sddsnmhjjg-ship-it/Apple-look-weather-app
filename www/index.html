@@ -340,27 +340,54 @@
       box-shadow: 0 18px 44px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.22);
       opacity: 0;
       visibility: hidden;
-      transform: translateY(-8px) scale(0.96);
+      filter: blur(12px);
+      transform-origin: top right;
+      transform: translate3d(0, -10px, 0) scale(0.94);
+      will-change: opacity, transform, filter;
       pointer-events: none;
-      transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.22s;
+      transition:
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.30s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.28s;
     }
     .settings-popover.open {
       opacity: 1;
       visibility: visible;
-      transform: translateY(0) scale(1);
+      filter: blur(0px);
+      transform: translate3d(0, 0, 0) scale(1);
       pointer-events: auto;
     }
     .adv-settings-grid {
       display: grid;
       grid-template-rows: 0fr;
       opacity: 0;
-      transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease, margin-top 0.25s ease;
+      filter: blur(10px);
+      transform: translate3d(0, -6px, 0) scale(0.97);
+      transform-origin: top center;
+      will-change: grid-template-rows, opacity, transform, filter;
+      transition:
+        grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-top 0.28s cubic-bezier(0.22, 1, 0.36, 1);
       margin-top: 0;
     }
     .adv-settings-grid.open {
       grid-template-rows: 1fr;
       opacity: 1;
+      filter: blur(0px);
+      transform: translate3d(0, 0, 0) scale(1);
       margin-top: 0.65rem;
+    }
+    .ui-blur-fade-target {
+      transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), filter 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .ui-blur-fade-active {
+      opacity: 0.35;
+      filter: blur(6px);
+      transform: translate3d(0, 2px, 0) scale(0.992);
     }
     .ios-slider {
       -webkit-appearance: none;
@@ -559,7 +586,7 @@
                       <span id="valCloudAmt" class="text-sky-300 font-semibold">100%</span>
                     </div>
                     <input id="sliderCloudAmt" type="range" min="0" max="150" step="5" value="100"
-                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                           oninput="onSkyStarSliderChange('cloud')" class="ios-slider" />
                   </div>
 
                   <!-- Star Pixel Size -->
@@ -569,7 +596,7 @@
                       <span id="valStarSize" class="text-sky-300 font-semibold">3.7 px</span>
                     </div>
                     <input id="sliderStarSize" type="range" min="1.4" max="6.5" step="0.1" value="3.7"
-                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                           oninput="onSkyStarSliderChange('size')" class="ios-slider" />
                   </div>
 
                   <!-- Star Core Pinpoint -->
@@ -579,7 +606,7 @@
                       <span id="valStarCore" class="text-sky-300 font-semibold">9.0</span>
                     </div>
                     <input id="sliderStarCore" type="range" min="4.0" max="16.0" step="0.5" value="9.0"
-                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                           oninput="onSkyStarSliderChange('sprite')" class="ios-slider" />
                   </div>
 
                   <!-- Star Bloom -->
@@ -589,7 +616,7 @@
                       <span id="valStarBloom" class="text-sky-300 font-semibold">36%</span>
                     </div>
                     <input id="sliderStarBloom" type="range" min="0" max="80" step="2" value="36"
-                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                           oninput="onSkyStarSliderChange('sprite')" class="ios-slider" />
                   </div>
 
                   <!-- Star Count -->
@@ -599,7 +626,7 @@
                       <span id="valStarCount" class="text-sky-300 font-semibold">175</span>
                     </div>
                     <input id="sliderStarCount" type="range" min="30" max="320" step="5" value="175"
-                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                           oninput="onSkyStarSliderChange('layout')" class="ios-slider" />
                   </div>
 
                   <!-- Star Sky Area -->
@@ -609,7 +636,7 @@
                       <span id="valStarArea" class="text-sky-300 font-semibold">38%</span>
                     </div>
                     <input id="sliderStarArea" type="range" min="20" max="65" step="1" value="38"
-                           oninput="onSkyStarSliderChange()" class="ios-slider" />
+                           oninput="onSkyStarSliderChange('layout')" class="ios-slider" />
                   </div>
 
                   <!-- Reset Defaults Button -->
@@ -1510,30 +1537,27 @@
       graphicsQuality: 'high'// 'high' (คมชัดสูง) หรือ 'low' (ประหยัดพลังงานสำหรับเครื่องสเปกต่ำ)
     };
     window.STAR_CONFIG = STAR_CONFIG;
-    window.rebuildStars = function () {
-      starSpriteCanvas = null;
-      buildParticleSpriteAtlas();
-      initPrecipitation();
-    };
 
-    function initPrecipitation() {
+    function updateStarSizesInPlace() {
+      const sizeRange = Math.max(0, STAR_CONFIG.maxSizePx - STAR_CONFIG.minSizePx);
+      for (let i = 0; i < nightStars.length; i++) {
+        const star = nightStars[i];
+        const sf = star.sizeFactor !== undefined ? star.sizeFactor : 0.5;
+        star.r = (STAR_CONFIG.minSizePx + sf * sizeRange) * 0.5;
+      }
+    }
+
+    function initNightStars() {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      rainDrops = [];
-      rainSplashes = [];
-      rimGlints = [];
-      snowFlakes = [];
-      snowRimPuffs = [];
       nightStars = [];
 
       const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
-      const gfxMult = isLowGfx ? 0.48 : 1.0;
-
-      // Organic random star placement in the upper sky (no rigid grid, smooth vertical fade, tiny pinpoint core + soft bloom)
       const baseStarCount = w < 640 ? STAR_CONFIG.countMobile : STAR_CONFIG.countDesktop;
       const starTargetCount = Math.round(baseStarCount * (isLowGfx ? 0.65 : 1.0));
       const skyHeight = h * STAR_CONFIG.skyHeightRatio;
       const minDistSq = 18 * 18;
+      const sizeRange = Math.max(0, STAR_CONFIG.maxSizePx - STAR_CONFIG.minSizePx);
 
       for (let i = 0; i < starTargetCount; i++) {
         let x = 0;
@@ -1553,8 +1577,8 @@
           if (!tooClose) break;
         }
         const yNorm = y / Math.max(1, skyHeight);
-        const sizeRange = Math.max(0, STAR_CONFIG.maxSizePx - STAR_CONFIG.minSizePx);
-        const totalDiam = STAR_CONFIG.minSizePx + Math.random() * sizeRange;
+        const sizeFactor = Math.random();
+        const totalDiam = STAR_CONFIG.minSizePx + sizeFactor * sizeRange;
         const r = totalDiam * 0.5;
         // Natural brightness variation + organic soft fade toward lower sky (no flat cutoff line)
         const baseBright = 0.52 + Math.random() * 0.48;
@@ -1567,14 +1591,43 @@
           x,
           y,
           r,
+          sizeFactor,
           peakAlpha: baseBright * horizonFade,
-          minAlpha: (0.16 + Math.random() * 0.24) * baseBright * horizonFade,
-          speed1: 0.75 + Math.random() * 2.65,
-          speed2: 1.35 + Math.random() * 2.85,
+          minAlpha: (0.14 + Math.random() * 0.22) * baseBright * horizonFade,
+          speed1: 0.75 + Math.random() * 2.45,
+          speed2: 1.25 + Math.random() * 2.65,
           phase1: Math.random() * Math.PI * 2,
           phase2: Math.random() * Math.PI * 2
         });
       }
+    }
+
+    window.rebuildStars = function (mode = 'all') {
+      if (mode === 'size') {
+        updateStarSizesInPlace();
+      } else if (mode === 'sprite') {
+        buildStarSprite();
+      } else if (mode === 'layout') {
+        initNightStars();
+      } else {
+        buildStarSprite();
+        initNightStars();
+      }
+    };
+
+    function initPrecipitation() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      rainDrops = [];
+      rainSplashes = [];
+      rimGlints = [];
+      snowFlakes = [];
+      snowRimPuffs = [];
+
+      const isLowGfx = STAR_CONFIG.graphicsQuality === 'low';
+      const gfxMult = isLowGfx ? 0.48 : 1.0;
+
+      initNightStars();
 
       const rainCount = Math.round((w < 640 ? 115 : 210) * gfxMult);
       for (let i = 0; i < rainCount; i++) {
@@ -1737,6 +1790,42 @@
     let currentScrollY = window.scrollY || 0;
     let wetCardAccumDt = 0;
 
+    function buildStarSprite() {
+      if (!starSpriteCanvas) {
+        starSpriteCanvas = document.createElement('canvas');
+        starSpriteCanvas.width = 64;
+        starSpriteCanvas.height = 64;
+      }
+      const stCtx = starSpriteCanvas.getContext('2d');
+      stCtx.clearRect(0, 0, 64, 64);
+      const bOp = Math.max(0, Math.min(1, STAR_CONFIG.bloomOpacity));
+      const cRad = Math.max(2.0, Math.min(28.0, STAR_CONFIG.coreRadiusSprite));
+
+      // 1. Delicate translucent circular bloom halo
+      if (bOp > 0.005) {
+        const bloomGrad = stCtx.createRadialGradient(32, 32, 2.0, 32, 32, 30.0);
+        bloomGrad.addColorStop(0, `rgba(224, 242, 254, ${bOp})`);
+        bloomGrad.addColorStop(0.35, `rgba(186, 230, 253, ${(bOp * 0.44).toFixed(3)})`);
+        bloomGrad.addColorStop(0.70, `rgba(147, 197, 253, ${(bOp * 0.14).toFixed(3)})`);
+        bloomGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
+        stCtx.fillStyle = bloomGrad;
+        stCtx.beginPath();
+        stCtx.arc(32, 32, 30.0, 0, Math.PI * 2);
+        stCtx.fill();
+      }
+
+      // 2. Tiny razor-sharp pure-white pinpoint core
+      const coreGrad = stCtx.createRadialGradient(32, 32, 0, 32, 32, cRad);
+      coreGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      coreGrad.addColorStop(0.62, 'rgba(255, 255, 255, 1)');
+      coreGrad.addColorStop(0.86, 'rgba(248, 252, 255, 0.65)');
+      coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      stCtx.fillStyle = coreGrad;
+      stCtx.beginPath();
+      stCtx.arc(32, 32, cRad, 0, Math.PI * 2);
+      stCtx.fill();
+    }
+
     function buildParticleSpriteAtlas() {
       if (!dropletSpriteCanvas) {
         dropletSpriteCanvas = document.createElement('canvas');
@@ -1762,36 +1851,7 @@
       }
 
       if (!starSpriteCanvas) {
-        starSpriteCanvas = document.createElement('canvas');
-        starSpriteCanvas.width = 64;
-        starSpriteCanvas.height = 64;
-        const stCtx = starSpriteCanvas.getContext('2d');
-        const bOp = Math.max(0, Math.min(1, STAR_CONFIG.bloomOpacity));
-        const cRad = Math.max(2.0, Math.min(28.0, STAR_CONFIG.coreRadiusSprite));
-
-        // 1. Delicate translucent circular bloom halo
-        if (bOp > 0.005) {
-          const bloomGrad = stCtx.createRadialGradient(32, 32, 2.0, 32, 32, 30.0);
-          bloomGrad.addColorStop(0, `rgba(224, 242, 254, ${bOp})`);
-          bloomGrad.addColorStop(0.35, `rgba(186, 230, 253, ${(bOp * 0.44).toFixed(3)})`);
-          bloomGrad.addColorStop(0.70, `rgba(147, 197, 253, ${(bOp * 0.14).toFixed(3)})`);
-          bloomGrad.addColorStop(1, 'rgba(147, 197, 253, 0)');
-          stCtx.fillStyle = bloomGrad;
-          stCtx.beginPath();
-          stCtx.arc(32, 32, 30.0, 0, Math.PI * 2);
-          stCtx.fill();
-        }
-
-        // 2. Tiny razor-sharp pure-white pinpoint core
-        const coreGrad = stCtx.createRadialGradient(32, 32, 0, 32, 32, cRad);
-        coreGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        coreGrad.addColorStop(0.62, 'rgba(255, 255, 255, 1)');
-        coreGrad.addColorStop(0.86, 'rgba(248, 252, 255, 0.65)');
-        coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        stCtx.fillStyle = coreGrad;
-        stCtx.beginPath();
-        stCtx.arc(32, 32, cRad, 0, Math.PI * 2);
-        stCtx.fill();
+        buildStarSprite();
       }
 
       if (!rimGlintSpriteCanvas) {
@@ -2400,11 +2460,13 @@
               const star = nightStars[i];
               const wave = 0.62 * Math.sin(elapsed * star.speed1 + star.phase1) + 0.38 * Math.cos(elapsed * star.speed2 - star.phase2);
               const wNorm = 0.5 + 0.5 * wave;
-              const alpha = (star.minAlpha + (star.peakAlpha - star.minAlpha) * wNorm) * nightVis;
+              const wSmooth = wNorm * wNorm * (3.0 - 2.0 * wNorm);
+              const alpha = (star.minAlpha + (star.peakAlpha - star.minAlpha) * wSmooth) * nightVis;
               if (alpha <= 0.02) continue;
-              const diam = star.r * 2.0;
+              const curR = star.r * (0.86 + 0.22 * wSmooth);
+              const diam = curR * 2.0;
               lightningCtx.globalAlpha = alpha;
-              lightningCtx.drawImage(starSpriteCanvas, star.x + pxShift - star.r, star.y + pyShift - star.r, diam, diam);
+              lightningCtx.drawImage(starSpriteCanvas, star.x + pxShift - curR, star.y + pyShift - curR, diam, diam);
             }
             lightningCtx.globalAlpha = prevStarAlpha;
           }
@@ -4483,18 +4545,39 @@
       if (chev) chev.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
+    let uiBlurFadeTimer = null;
+    function triggerDashboardBlurFade(callback) {
+      const dash = document.getElementById('heroWeatherSection');
+      if (!dash) {
+        if (callback) callback();
+        return;
+      }
+      dash.classList.add('ui-blur-fade-target', 'ui-blur-fade-active');
+      clearTimeout(uiBlurFadeTimer);
+      uiBlurFadeTimer = setTimeout(() => {
+        if (callback) callback();
+        requestAnimationFrame(() => {
+          dash.classList.remove('ui-blur-fade-active');
+        });
+      }, 95);
+    }
+
     function setTempUnitPref(celsius) {
       if (useCelsius === celsius) return;
-      toggleTempUnit();
-      syncSettingsUiState();
-      saveAppSettings();
+      triggerDashboardBlurFade(() => {
+        toggleTempUnit();
+        syncSettingsUiState();
+        saveAppSettings();
+      });
     }
 
     function setLanguagePref(lang) {
       if (currentLang === lang) return;
-      toggleLanguage();
-      syncSettingsUiState();
-      saveAppSettings();
+      triggerDashboardBlurFade(() => {
+        toggleLanguage();
+        syncSettingsUiState();
+        saveAppSettings();
+      });
     }
 
     function setGraphicsQuality(mode) {
@@ -4504,7 +4587,11 @@
       saveAppSettings();
     }
 
-    function onSkyStarSliderChange() {
+    let skySliderRafId = 0;
+    let pendingSkySliderMode = null;
+    let saveSettingsDebounceTimer = null;
+
+    function onSkyStarSliderChange(mode = 'all') {
       const sCloud = document.getElementById('sliderCloudAmt');
       const sSize = document.getElementById('sliderStarSize');
       const sCore = document.getElementById('sliderStarCore');
@@ -4514,8 +4601,6 @@
 
       if (sCloud) {
         STAR_CONFIG.cloudMultiplier = Number(sCloud.value) / 100;
-        lastOverlayOpacities.fill(-1);
-        renderSkyOverlays();
       }
       if (sSize) {
         const mid = Number(sSize.value);
@@ -4537,9 +4622,33 @@
         STAR_CONFIG.skyHeightRatio = Number(sArea.value) / 100;
       }
 
-      window.rebuildStars();
+      // Update numeric readout labels immediately for zero-latency feedback
       syncSettingsUiState();
-      saveAppSettings();
+
+      // Coalesce canvas/star updates to at most once per display frame (60-160 FPS)
+      if (!pendingSkySliderMode || pendingSkySliderMode === mode) {
+        pendingSkySliderMode = mode;
+      } else {
+        pendingSkySliderMode = 'all';
+      }
+
+      if (!skySliderRafId) {
+        skySliderRafId = requestAnimationFrame(() => {
+          skySliderRafId = 0;
+          const m = pendingSkySliderMode || 'all';
+          pendingSkySliderMode = null;
+          if (m === 'cloud') {
+            lastOverlayOpacities.fill(-1);
+            renderSkyOverlays();
+          } else {
+            window.rebuildStars(m);
+          }
+        });
+      }
+
+      // Debounce localStorage write so dragging never blocks the main thread
+      clearTimeout(saveSettingsDebounceTimer);
+      saveSettingsDebounceTimer = setTimeout(saveAppSettings, 220);
     }
 
     function resetSkyStarDefaults() {
@@ -4553,7 +4662,7 @@
       STAR_CONFIG.skyHeightRatio = 0.38;
       lastOverlayOpacities.fill(-1);
       renderSkyOverlays();
-      window.rebuildStars();
+      window.rebuildStars('all');
       syncSettingsUiState();
       saveAppSettings();
     }
