@@ -1163,30 +1163,7 @@
           col = mix(col, vec3(1.0, 0.72, 0.49), upperRibbon * warmVisibility * 0.20);
         }
 
-        // 2. Subtle Asynchronous Twinkling Night Stars in Upper Sky (independent phase, speed & cell jitter per star)
-        if (uNightFactor > 0.01 && uv.y > 0.45) {
-          vec2 starGrid = floor(p * 55.0);
-          float sRnd = hash(starGrid);
-          if (sRnd > 0.965) {
-            float sNorm = (sRnd - 0.965) * 28.5714;
-            float sRnd2 = hash(starGrid + vec2(17.3, 29.7));
-            vec2 cellOffset = vec2(sNorm - 0.5, sRnd2 - 0.5) * 0.46;
-            vec2 f = fract(p * 55.0) - 0.5 - cellOffset;
-            float d = length(f);
-            float phase1 = sNorm * 6.2832;
-            float phase2 = sRnd2 * 6.2832;
-            float speed1 = 0.85 + sRnd2 * 3.45;
-            float speed2 = 1.65 + sNorm * 2.95;
-            float wave = 0.62 * sin(uTime * speed1 + phase1) + 0.38 * cos(uTime * speed2 - phase2);
-            float twinkleDepth = 0.32 + 0.58 * fract(sNorm + sRnd2);
-            float twinkle = clamp((1.0 - twinkleDepth * 0.5) + (twinkleDepth * 0.5) * wave, 0.08, 1.0);
-            float starRadius = 0.13 + 0.08 * sNorm;
-            float starBright = 0.58 + 0.52 * sRnd2;
-            vec3 starTint = mix(vec3(0.72, 0.86, 1.0), vec3(0.96, 0.94, 1.0), sNorm);
-            float star = (1.0 - smoothstep(0.0, starRadius, d)) * twinkle * starBright * smoothstep(0.48, 1.0, uNightFactor) * smoothstep(0.45, 0.85, uv.y);
-            col += starTint * star;
-          }
-        }
+        // 2. Night Stars are rendered at full native High-DPI resolution on #lightningCanvas for crisp, round pinpoint quality
 
         // 3. Multi-Layered Drifting Misty Clouds (Early-exit spatial culling: skip bottom ~50% of screen where clouds are masked out)
         float stormExpand = uStormFactor * 0.06;
@@ -1313,6 +1290,7 @@
     let rimGlints = [];
     let snowFlakes = [];
     let snowRimPuffs = [];
+    let nightStars = [];
     let wetCardStates = [];
 
     function initPrecipitation() {
@@ -1323,6 +1301,42 @@
       rimGlints = [];
       snowFlakes = [];
       snowRimPuffs = [];
+      nightStars = [];
+
+      // Stratified jittered placement for crisp, bright, round pinpoint night stars
+      const starTargetCount = w < 640 ? 165 : 250;
+      const skyHeight = h * 0.60;
+      const aspect = Math.max(0.5, w / Math.max(1, skyHeight));
+      const cols = Math.max(10, Math.round(Math.sqrt(starTargetCount * aspect)));
+      const rows = Math.max(6, Math.round(starTargetCount / cols));
+      const cellW = w / cols;
+      const cellH = skyHeight / rows;
+
+      for (let rIdx = 0; rIdx < rows; rIdx++) {
+        for (let cIdx = 0; cIdx < cols; cIdx++) {
+          const x = (cIdx + 0.14 + Math.random() * 0.72) * cellW;
+          const y = (rIdx + 0.14 + Math.random() * 0.72) * cellH;
+          const yNorm = y / Math.max(1, skyHeight);
+          // Slightly varied but closely-matched pinpoint radius (0.68px to 1.20px CSS radius)
+          const r = 0.68 + Math.random() * 0.52;
+          // Bright crisp white appearance with subtle natural variation
+          const peakAlpha = 0.86 + Math.random() * 0.14;
+          const minAlpha = 0.28 + Math.random() * 0.26;
+          const horizonFade = yNorm < 0.72 ? 1.0 : Math.max(0.28, 1.0 - ((yNorm - 0.72) / 0.28) * 0.72);
+          nightStars.push({
+            x,
+            y,
+            r,
+            peakAlpha: peakAlpha * horizonFade,
+            minAlpha: minAlpha * horizonFade,
+            speed1: 0.75 + Math.random() * 2.65,
+            speed2: 1.35 + Math.random() * 2.85,
+            phase1: Math.random() * Math.PI * 2,
+            phase2: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
       const rainCount = w < 640 ? 115 : 210;
       for (let i = 0; i < rainCount; i++) {
         const depth = Math.random();
@@ -1480,6 +1494,7 @@
     let dropletSpriteCanvas = null;
     let snowSpriteCanvas = null;
     let rimGlintSpriteCanvas = null;
+    let starSpriteCanvas = null;
     let currentScrollY = window.scrollY || 0;
     let wetCardAccumDt = 0;
 
@@ -1505,6 +1520,22 @@
         sctx.beginPath();
         sctx.arc(16, 16, 15.0, 0, Math.PI * 2);
         sctx.fill();
+      }
+
+      if (!starSpriteCanvas) {
+        starSpriteCanvas = document.createElement('canvas');
+        starSpriteCanvas.width = 32;
+        starSpriteCanvas.height = 32;
+        const stCtx = starSpriteCanvas.getContext('2d');
+        const grad = stCtx.createRadialGradient(16, 16, 0, 16, 16, 15.0);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        grad.addColorStop(0.68, 'rgba(255, 255, 255, 1)');
+        grad.addColorStop(0.84, 'rgba(248, 252, 255, 0.72)');
+        grad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+        stCtx.fillStyle = grad;
+        stCtx.beginPath();
+        stCtx.arc(16, 16, 15.0, 0, Math.PI * 2);
+        stCtx.fill();
       }
 
       if (!rimGlintSpriteCanvas) {
@@ -2065,7 +2096,7 @@
         if (shootingStarCooldown <= 0) {
           shootingStarCooldown = 2.0 + Math.random() * 2.0;
           if (lightningCanvas) {
-            spawnShootingStar(lightningCanvas.width, lightningCanvas.height);
+            spawnShootingStar(window.innerWidth, window.innerHeight);
           }
         }
       }
@@ -2097,14 +2128,32 @@
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
 
-      // 1b. Render Background Lightning Bolts & Night Shooting Stars on #lightningCanvas (z-0, behind mist & behind all UI cards)
+      // 1b. Render High-DPI Night Stars, Shooting Stars & Background Lightning Bolts on #lightningCanvas (z-0, behind mist & behind all UI cards)
       if (lightningCtx && lightningCanvas) {
-        if (activeBolts.length > 0 || activeShootingStars.length > 0) {
-          lightningCtx.clearRect(0, 0, lightningCanvas.width, lightningCanvas.height);
+        const nightVis = smoothSkyStep(0.45, 0.90, renderState.nightFactor) * (1.0 - renderState.stormFactor * 0.72);
+        if (nightVis > 0.01 || activeBolts.length > 0 || activeShootingStars.length > 0) {
+          lightningCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
           lightningCanvasDirty = true;
 
+          // Render crisp, round, bright pinpoint night stars at native High-DPI resolution
+          if (nightVis > 0.01 && starSpriteCanvas && nightStars.length > 0) {
+            const prevStarAlpha = lightningCtx.globalAlpha;
+            const pxShift = pointerParallax.x * 3.5;
+            const pyShift = pointerParallax.y * 2.5;
+            for (let i = 0; i < nightStars.length; i++) {
+              const star = nightStars[i];
+              const wave = 0.62 * Math.sin(elapsed * star.speed1 + star.phase1) + 0.38 * Math.cos(elapsed * star.speed2 - star.phase2);
+              const wNorm = 0.5 + 0.5 * wave;
+              const alpha = (star.minAlpha + (star.peakAlpha - star.minAlpha) * wNorm) * nightVis;
+              if (alpha <= 0.02) continue;
+              const diam = star.r * 2.0;
+              lightningCtx.globalAlpha = alpha;
+              lightningCtx.drawImage(starSpriteCanvas, star.x + pxShift - star.r, star.y + pyShift - star.r, diam, diam);
+            }
+            lightningCtx.globalAlpha = prevStarAlpha;
+          }
+
           // Render delicate night shooting stars in the upper sky
-          const nightVis = smoothSkyStep(0.50, 0.92, renderState.nightFactor) * (1.0 - renderState.stormFactor * 0.75);
           for (let i = activeShootingStars.length - 1; i >= 0; i--) {
             const s = activeShootingStars[i];
             s.age += dt;
@@ -2202,7 +2251,7 @@
             lightningCtx.restore();
           }
         } else if (lightningCanvasDirty) {
-          lightningCtx.clearRect(0, 0, lightningCanvas.width, lightningCanvas.height);
+          lightningCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
           lightningCanvasDirty = false;
         }
       }
@@ -2494,8 +2543,12 @@
       }
 
       if (lightningCanvas) {
-        lightningCanvas.width = window.innerWidth;
-        lightningCanvas.height = window.innerHeight;
+        const starDpr = Math.min(2, window.devicePixelRatio || 1);
+        lightningCanvas.width = Math.round(window.innerWidth * starDpr);
+        lightningCanvas.height = Math.round(window.innerHeight * starDpr);
+        if (lightningCtx) {
+          lightningCtx.setTransform(starDpr, 0, 0, starDpr, 0, 0);
+        }
       }
 
       fxCanvas.width = window.innerWidth;
