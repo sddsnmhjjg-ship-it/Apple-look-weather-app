@@ -4412,6 +4412,23 @@
       });
     }
 
+    function getFeelsLikeDescription(actualTempF, feelsLikeTempF) {
+      const th = isTH();
+      if (actualTempF == null || feelsLikeTempF == null) {
+        return th ? 'ใกล้เคียงกับอุณหภูมิจริง' : 'Similar to the actual temperature.';
+      }
+      const actualDisp = fmtTemp(actualTempF);
+      const feelsDisp = fmtTemp(feelsLikeTempF);
+      if (typeof actualDisp === 'number' && typeof feelsDisp === 'number') {
+        if (feelsDisp > actualDisp) {
+          return th ? 'รู้สึกร้อนกว่าอุณหภูมิจริง' : 'It feels warmer than the actual temperature.';
+        } else if (feelsDisp < actualDisp) {
+          return th ? 'ลมทำให้อากาศรู้สึกเย็นลง' : 'Wind is making it feel cooler.';
+        }
+      }
+      return th ? 'ใกล้เคียงกับอุณหภูมิจริง' : 'Similar to the actual temperature.';
+    }
+
     function renderLiveDomWidgets() {
       if (!latestWeatherData) return;
       const d = latestWeatherData;
@@ -4495,7 +4512,7 @@
       document.getElementById('feelsLikeValue').textContent = `${fmtTemp(d.feelsLikeF)}°`;
       const feelsDescEl = document.getElementById('feelsLikeDesc');
       if (feelsDescEl) {
-        feelsDescEl.textContent = th ? 'ใกล้เคียงกับอุณหภูมิจริง' : 'Similar to the actual temperature.';
+        feelsDescEl.textContent = getFeelsLikeDescription(d.tempF, d.feelsLikeF);
       }
       document.getElementById('humidityValue').textContent = `${d.humidity}%`;
       document.getElementById('dewPointText').textContent = th
@@ -5028,6 +5045,10 @@
       document.getElementById('sunEventTime').textContent = theme.sunset;
       document.getElementById('sunriseInfo').textContent = theme.sunriseInfo;
       document.getElementById('feelsLikeValue').textContent = `${fmtTemp(theme.feelsLike)}°`;
+      const feelsDescEl = document.getElementById('feelsLikeDesc');
+      if (feelsDescEl) {
+        feelsDescEl.textContent = getFeelsLikeDescription(theme.temp, theme.feelsLike);
+      }
       document.getElementById('humidityValue').textContent = theme.humidity;
       document.getElementById('dewPointText').textContent = th
         ? `จุดน้ำค้างอยู่ที่ ${fmtTemp(theme.temp - 6)}° ในขณะนี้`
